@@ -1,4 +1,4 @@
-# 3D Kabloj
+# 3D Kablaj
 
 3 boyutlu modeller için cihaz kablajı. GLB modeli yerleştirir, portları işaretler, kabloyu çizersin.
 
