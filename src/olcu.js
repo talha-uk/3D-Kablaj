@@ -7,6 +7,176 @@ export function decimalText(value) {
   return `${parts[0]}.${parts.slice(1).join('')}`
 }
 
+function sub(a, b) {
+  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+}
+
+function add(a, b) {
+  return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+}
+
+function scale(v, s) {
+  return [v[0] * s, v[1] * s, v[2] * s]
+}
+
+function dot(a, b) {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+
+function cross(a, b) {
+  return [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0]
+  ]
+}
+
+function lengthOf(v) {
+  return Math.hypot(v[0], v[1], v[2])
+}
+
+function norm(v) {
+  const length = lengthOf(v) || 1
+  return scale(v, 1 / length)
+}
+
+function vertexKey(v) {
+  return v.map((value) => Math.round(value * 1e5) / 1e5).join(',')
+}
+
+function sameHeight(v, y) {
+  return y == null || Math.abs(v[1] - y) < 1e-3
+}
+
+function boundaryEdges(triangles) {
+  const map = new Map()
+  for (const tri of triangles) {
+    const edges = [[tri[0], tri[1]], [tri[1], tri[2]], [tri[2], tri[0]]]
+    for (const [a, b] of edges) {
+      const key = [vertexKey(a), vertexKey(b)].sort().join('|')
+      const item = map.get(key) || { a, b, count: 0 }
+      item.count += 1
+      map.set(key, item)
+    }
+  }
+  return [...map.values()].filter((edge) => edge.count === 1)
+}
+
+function closestOnSegment(point, a, b) {
+  const ab = sub(b, a)
+  const denom = dot(ab, ab) || 1
+  const t = Math.max(0, Math.min(1, dot(sub(point, a), ab) / denom))
+  return add(a, scale(ab, t))
+}
+
+function onPlane(point, normal, d) {
+  return sub(point, scale(normal, dot(normal, point) - d))
+}
+
+function levelTo(point, normal, y) {
+  if (y == null || Math.abs(point[1] - y) < 1e-4) return point
+  const grad = sub([0, 1, 0], scale(normal, dot([0, 1, 0], normal)))
+  if (Math.abs(grad[1]) < 1e-6) return Math.abs(point[1] - y) < 1e-3 ? point : null
+  return add(point, scale(grad, (y - point[1]) / grad[1]))
+}
+
+function insideTriangle(point, tri) {
+  const [a, b, c] = tri
+  const v0 = sub(b, a)
+  const v1 = sub(c, a)
+  const v2 = sub(point, a)
+  const d00 = dot(v0, v0)
+  const d01 = dot(v0, v1)
+  const d11 = dot(v1, v1)
+  const d20 = dot(v2, v0)
+  const d21 = dot(v2, v1)
+  const den = d00 * d11 - d01 * d01 || 1
+  const v = (d11 * d20 - d01 * d21) / den
+  const w = (d00 * d21 - d01 * d20) / den
+  const u = 1 - v - w
+  return u >= -1e-3 && v >= -1e-3 && w >= -1e-3
+}
+
+function nearest(point, candidates) {
+  let best = null
+  let bestDist = Infinity
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    const dist = lengthOf(sub(candidate, point))
+    if (dist < bestDist) {
+      best = candidate
+      bestDist = dist
+    }
+  }
+  return best
+}
+
+function snapCorner(edges, point, y) {
+  const seen = new Set()
+  const vertices = []
+  for (const edge of edges) {
+    for (const vertex of [edge.a, edge.b]) {
+      const key = vertexKey(vertex)
+      if (seen.has(key) || !sameHeight(vertex, y)) continue
+      seen.add(key)
+      vertices.push(vertex)
+    }
+  }
+  return nearest(point, vertices)
+}
+
+function snapEdge(edges, point, y) {
+  const candidates = []
+  for (const edge of edges) {
+    const ay = edge.a[1]
+    const by = edge.b[1]
+    if (y == null) {
+      candidates.push(closestOnSegment(point, edge.a, edge.b))
+    } else if (Math.abs(ay - y) < 1e-3 && Math.abs(by - y) < 1e-3) {
+      candidates.push(closestOnSegment(point, edge.a, edge.b))
+    } else if ((ay - y) * (by - y) <= 1e-6 && Math.abs(by - ay) > 1e-8) {
+      const t = Math.max(0, Math.min(1, (y - ay) / (by - ay)))
+      candidates.push(add(edge.a, scale(sub(edge.b, edge.a), t)))
+    }
+  }
+  return nearest(point, candidates)
+}
+
+function snapSurface(triangles, point, normal, d, y) {
+  const leveled = levelTo(onPlane(point, normal, d), normal, y)
+  if (!leveled) return null
+  if (triangles.some((tri) => insideTriangle(leveled, tri))) return leveled
+  return snapEdge(boundaryEdges(triangles), leveled, y)
+}
+
+// mode: kose, kenar, yuzey. lock ikinci noktayı ilk yüzey ve yüksekliğe bağlar.
+export function snapReference(triangles, point, normal, mode, lock = null) {
+  const n = norm(normal)
+  const d = dot(n, point)
+  if (lock?.plane) {
+    const pn = norm(lock.plane.normal)
+    if (Math.abs(dot(pn, n)) < 0.999) return null
+    if (Math.abs(dot(pn, point) - lock.plane.d) > 1e-3) return null
+  }
+  const useN = lock?.plane ? norm(lock.plane.normal) : n
+  const useD = lock?.plane ? lock.plane.d : d
+  const faces = triangles.filter((tri) => {
+    const tn = norm(cross(sub(tri[1], tri[0]), sub(tri[2], tri[0])))
+    if (Math.abs(dot(tn, useN)) < 0.999) return false
+    return tri.every((vertex) => Math.abs(dot(useN, vertex) - useD) < 1e-3)
+  })
+  if (!faces.length) return null
+  const edges = boundaryEdges(faces)
+  const y = lock?.y ?? null
+  const snapped = mode === 'kose'
+    ? snapCorner(edges, point, y)
+    : mode === 'kenar'
+      ? snapEdge(edges, point, y)
+      : snapSurface(faces, point, useN, useD, y)
+  if (!snapped) return null
+  return { position: snapped, plane: { normal: useN, d: useD }, y: snapped[1] }
+}
+
 export function axisSpans(points) {
   const span = { x: 0, y: 0, z: 0 }
   if (!points?.length) return span

@@ -6,7 +6,7 @@ import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
 import { routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
 import { addCable, addComponent, addModel, addPort, cableShown, emptyState, matchCable, uid } from '../src/state.js'
-import { cableLengthCm, decimalText, pairCm, portWorld, scaleFromBox, scaleFromPair } from '../src/olcu.js'
+import { cableLengthCm, decimalText, pairCm, portWorld, scaleFromBox, scaleFromPair, snapReference } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
 import fs from 'node:fs'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
@@ -299,6 +299,19 @@ const fitS = 1 / 11
 const bodyScale = scaleFromBox(body, { en: 10, boy: 4, derinlik: 8 }, fitS)
 check('gövde 10 cm, SMA payı ölçeğe girmez', Math.abs(bodyScale - 11) < 1e-6)
 check('ölçüye harf girilmez', decimalText('12a,5b.3') === '12.53')
+const side = [
+  [[0, 0, 0], [0, 2, 0], [0, 2, 2]],
+  [[0, 0, 0], [0, 2, 2], [0, 0, 2]]
+]
+const top = [[[0, 2, 0], [2, 2, 0], [0, 2, 2]]]
+const firstCorner = snapReference([...side, ...top], [0, 0.2, 0.2], [1, 0, 0], 'kose')
+check('köşe aynı yüze yapışır', firstCorner && firstCorner.position[1] === 0 && firstCorner.position[2] === 0)
+const secondCorner = snapReference([...side, ...top], [0, 1.8, 1.7], [1, 0, 0], 'kose', { plane: firstCorner.plane, y: firstCorner.y })
+check('ikinci köşe aynı yükseklikte', secondCorner && secondCorner.position[1] === 0 && secondCorner.position[2] === 2)
+const otherFace = snapReference([...side, ...top], [0.2, 2, 0.4], [0, 1, 0], 'yuzey', { plane: firstCorner.plane, y: firstCorner.y })
+check('başka yüzey kabul edilmez', otherFace === null)
+const levelPoint = snapReference(side, [0, 1.4, 1.1], [1, 0, 0], 'yuzey', { plane: firstCorner.plane, y: 0 })
+check('yüzey noktası yüksekliği korunur', levelPoint && Math.abs(levelPoint.position[1]) < 1e-6 && Math.abs(levelPoint.position[2] - 1.1) < 1e-6)
 check('ölçü ondalığı tek nokta', decimalText('1.2.3') === '1.23')
 check('ölçeklenmiş gövde 10 cm', Math.abs(pairCm([0, 0, 0], [10, 0, 0], fitS, bodyScale) - 10) < 1e-6)
 check('SMA ucu 11 cm de kalır', Math.abs(pairCm([0, 0, 0], [11, 0, 0], fitS, bodyScale) - 11) < 1e-6)

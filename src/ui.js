@@ -105,10 +105,12 @@ export function mount(hooks) {
         visible.forEach((item, index) => { item.tabIndex = index === 0 ? 0 : -1 })
       }
     }
+    const snapName = { kose: 'köşeye', kenar: 'kenara', yuzey: 'yüzeye' }
+    const snap = state.models.find((item) => item.id === ui.inspectId)?.olcu?.cift?.snap || 'yuzey'
     ipucu.textContent = ui.olcuHedef === 'a'
-      ? 'Birinci noktayı model yüzeyine tıkla.'
+      ? `Birinci noktayı ${snapName[snap]} tıkla.`
       : ui.olcuHedef === 'b'
-        ? 'İkinci noktayı model yüzeyine tıkla.'
+        ? `İkinci noktayı aynı yüzde ve aynı yükseklikte, ${snapName[snap]} tıkla.`
         : ui.mode === 'sema'
           ? 'Sağ alttaki küp bakışı gösterir. Yüz, kenar veya köşe kamerayı o açıya alır. Boş alanda sürükleyince şema kayar.'
           : (HINT[ui.tool] || HINT.sec)
@@ -454,12 +456,24 @@ export function mount(hooks) {
     pairTitle.textContent = 'İki nokta'
     const pairNote = document.createElement('p')
     pairNote.className = 'not'
-    pairNote.textContent = 'Birinci ve ikinci noktayı model yüzeyine tıkla. Araya ince çizgi çizilir.'
+    pairNote.textContent = 'Köşe, kenar veya yüzey seç. İki nokta aynı yüzde ve aynı yükseklikte olur.'
     const cift = {
       a: Array.isArray(olcu.cift?.a) ? olcu.cift.a : null,
       b: Array.isArray(olcu.cift?.b) ? olcu.cift.b : null,
       cm: olcu.cift?.cm ?? null,
-      color: olcu.cift?.color || '#2f8f4e'
+      color: olcu.cift?.color || '#2f8f4e',
+      snap: olcu.cift?.snap || 'yuzey',
+      plane: olcu.cift?.plane || null,
+      y: olcu.cift?.y ?? null
+    }
+    const modes = document.createElement('div')
+    modes.className = 'eylem'
+    modes.setAttribute('role', 'group')
+    modes.setAttribute('aria-label', 'Referans')
+    for (const [id, label] of [['kose', 'Köşe'], ['kenar', 'Kenar'], ['yuzey', 'Yüzey']]) {
+      const item = button(label, () => hooks.onOlcuPair?.(model.id, { ...olcu, cift: { ...cift, snap: id } }))
+      item.setAttribute('aria-pressed', cift.snap === id ? 'true' : 'false')
+      modes.append(item)
     }
     const pick = (hedef, label) => {
       const item = button(label, () => hooks.onOlcuHedef?.(hedef))
@@ -484,6 +498,7 @@ export function mount(hooks) {
     box.append(
       pairTitle,
       pairNote,
+      modes,
       row,
       colorLabel,
       cmInput('Mesafe (cm)', cift.cm, (cm) => {

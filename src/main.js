@@ -125,6 +125,16 @@ const view = new View(document.getElementById('sahne'), {
   modelBuffer,
   inspectModelId: () => uiState.inspectId || inspectFallback(),
   olcuHedef: () => uiState.olcuHedef,
+  olcuSnap: () => {
+    const model = state.models.find((item) => item.id === uiState.inspectId)
+    return model?.olcu?.cift?.snap || 'yuzey'
+  },
+  olcuLock: () => {
+    const model = state.models.find((item) => item.id === uiState.inspectId)
+    const cift = model?.olcu?.cift
+    if (!cift?.plane || !Array.isArray(cift.a)) return null
+    return { plane: cift.plane, y: cift.y }
+  },
   status: (text) => ui.status(text),
   onSelect: (selection) => select(selection),
   onPort: async (port) => {
@@ -163,9 +173,17 @@ const view = new View(document.getElementById('sahne'), {
         a: Array.isArray(olcu.cift?.a) ? olcu.cift.a : null,
         b: Array.isArray(olcu.cift?.b) ? olcu.cift.b : null,
         cm: olcu.cift?.cm ?? null,
-        color: olcu.cift?.color || '#2f8f4e'
+        color: olcu.cift?.color || '#2f8f4e',
+        snap: olcu.cift?.snap || 'yuzey',
+        plane: olcu.cift?.plane || null,
+        y: olcu.cift?.y ?? null
       }
       cift[point.hedef] = point.position
+      if (point.hedef === 'a') {
+        cift.b = null
+        cift.plane = point.plane
+        cift.y = point.y
+      }
       olcu.cift = cift
       uiState = { ...uiState, olcuHedef: point.hedef === 'a' ? 'b' : null }
       applyMeasure(modelId, olcu, 'cift')

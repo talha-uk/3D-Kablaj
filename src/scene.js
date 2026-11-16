@@ -6,6 +6,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { clone as cloneObject } from 'three/addons/utils/SkeletonUtils.js'
 import { focusFor } from './focus.js'
 import { SCHEMA_TILT, aimAhead, cameraPlacement, flyDelta, groundAxes, panFocus, schemaPose, turnLook } from './fly.js'
+import { snapReference } from './olcu.js'
 import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
@@ -1565,14 +1566,56 @@ export class View {
     align.add(line)
   }
 
+  meshTriangles(mesh, inverse) {
+    const position = mesh.geometry?.attributes?.position
+    if (!position) return []
+    const index = mesh.geometry.index
+    const local = (vertex) => {
+      const vector = new THREE.Vector3().fromBufferAttribute(position, vertex)
+      vector.applyMatrix4(mesh.matrixWorld).applyMatrix4(inverse)
+      return [vector.x, vector.y, vector.z]
+    }
+    const triangles = []
+    if (index) {
+      for (let i = 0; i < index.count; i += 3) {
+        triangles.push([local(index.getX(i)), local(index.getX(i + 1)), local(index.getX(i + 2))])
+      }
+    } else {
+      for (let i = 0; i < position.count; i += 3) triangles.push([local(i), local(i + 1), local(i + 2)])
+    }
+    return triangles
+  }
+
   createMeasurePoint(hit, hedef) {
     const align = this.inspectRoot.children[0]
-    if (!align || !hit.face) return
+    if (!align || !hit.face || !hit.object?.geometry) return
     const inverse = align.matrixWorld.clone().invert()
     const point = hit.point.clone().applyMatrix4(inverse)
+    const normal = hit.face.normal.clone().transformDirection(inverse).normalize()
+    if (hedef !== 'a' && hedef !== 'b') {
+      this.hooks.onMeasurePoint?.({
+        position: [point.x, point.y, point.z]
+      })
+      return
+    }
+    const snap = this.hooks.olcuSnap?.() || 'yuzey'
+    const lock = hedef === 'b' ? this.hooks.olcuLock?.() : null
+    const result = snapReference(
+      this.meshTriangles(hit.object, inverse),
+      [point.x, point.y, point.z],
+      [normal.x, normal.y, normal.z],
+      snap,
+      lock
+    )
+    if (!result) {
+      this.hooks.status?.('Aynı yüzeyde ve aynı yükseklikte seç.')
+      return
+    }
     this.hooks.onMeasurePoint?.({
-      position: [point.x, point.y, point.z],
-      hedef
+      position: result.position,
+      hedef,
+      plane: result.plane,
+      y: result.y
     })
   }
 
