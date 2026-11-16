@@ -134,7 +134,7 @@ h2 { font-size: 0.85rem; margin-block-end: 0.4rem; }
 .app {
   height: 100dvh;
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .ust, .arac {
@@ -170,9 +170,17 @@ h2 { font-size: 0.85rem; margin-block-end: 0.4rem; }
 #durum { color: var(--muted); font-size: 0.85rem; margin-inline-start: auto; }
 
 .arac [role="group"] { display: flex; flex-wrap: wrap; gap: 0.35rem; }
-.arac [role="separator"] { inline-size: 1px; align-self: stretch; background: var(--line); }
 
 #ipucu { padding: 0.25rem 0.7rem; color: var(--muted); font-size: 0.85rem; }
+
+#ekran {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+#secilen h2:not(:first-child) { margin-block-start: 0.9rem; }
 
 .alan {
   min-height: 0;

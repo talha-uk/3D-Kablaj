@@ -5,7 +5,7 @@ const HINT = {
   sec: 'Parçaya veya kabloya tıkla. Boş alanda sürükleyince kamera yerinde kalır, yalnız bakış yönü değişir.',
   tasi: 'Parçayı oklarla taşı. Herhangi bir portu tutup modelin yüzeyinde kaydır.',
   dondur: 'Modeli yeşil halkadan çevir. Port seçiliyken portu tutup çevirirsin, halka portu gömmez.',
-  port: 'İncelemede yüzeye tıkla. RF SMA, RF N, USB 2.0, USB 3.0, USB Type-C, Ethernet veya Güç.',
+  port: 'Yerleşimde veya incelede yüzeye tıkla. RF SMA, RF N, USB 2.0, USB 3.0, USB Type-C, Ethernet veya Güç.',
   kablo: 'Önce bir port, sonra öteki. Aynı tür bağlanır. SMA–N, Ethernet–Type-C ve USB ara kablosu da olur.'
 }
 
@@ -38,14 +38,16 @@ export function mount(hooks) {
   const ipucu = document.getElementById('ipucu')
   const bos = document.getElementById('bos')
   const modeller = document.getElementById('modeller')
-  const parcalar = document.getElementById('parcalar')
-  const kablolar = document.getElementById('kablolar')
+  const secilen = document.getElementById('secilen')
+  const secilenNe = document.getElementById('secilen-ne')
+  const secilenAd = document.getElementById('secilen-ad')
+  const bagli = document.getElementById('bagli')
   const secili = document.getElementById('secili')
   const projeAd = document.getElementById('proje-ad')
   const dosya = document.getElementById('dosya')
   const jsonDosya = document.getElementById('json-dosya')
   const kutuphane = document.getElementById('kutuphane')
-  const gorunum = document.getElementById('gorunum')
+  const ekran = document.getElementById('ekran')
   const acili = document.getElementById('acili')
 
   document.getElementById('yukle').addEventListener('click', () => dosya.click())
@@ -66,15 +68,11 @@ export function mount(hooks) {
 
   document.querySelector('[aria-label="Araç"]').addEventListener('click', (event) => {
     const target = event.target.closest('[data-tool]')
-    if (!target || target.getAttribute('aria-disabled') === 'true') return
+    if (!target || target.hidden || target.getAttribute('aria-disabled') === 'true') return
     hooks.onTool?.(target.dataset.tool)
   })
-  document.querySelector('[aria-label="Görünen kablo türleri"]').addEventListener('click', (event) => {
-    const target = event.target.closest('[data-filter]')
-    if (target) hooks.onFilter?.(target.dataset.filter)
-  })
 
-  for (const zone of [kutuphane, gorunum]) {
+  for (const zone of [kutuphane, ekran]) {
     zone.addEventListener('dragover', (event) => {
       if (![...event.dataTransfer.types].includes('Files')) return
       event.preventDefault()
@@ -91,14 +89,18 @@ export function mount(hooks) {
   function render(state, ui) {
     if (document.activeElement !== projeAd) projeAd.value = state.name
     for (const item of document.querySelectorAll('[data-tool]')) {
-      const on = item.dataset.tool === ui.tool
-      item.setAttribute('aria-pressed', on ? 'true' : 'false')
-      const locked = false
-      item.setAttribute('aria-disabled', locked ? 'true' : 'false')
+      const tool = item.dataset.tool
+      item.hidden = (ui.mode === 'incele' && tool === 'kablo') || (ui.mode === 'sema' && tool === 'port')
+      item.setAttribute('aria-pressed', tool === ui.tool ? 'true' : 'false')
+      item.setAttribute('aria-disabled', 'false')
     }
-    const hidden = new Set(state.hiddenTypes)
-    for (const item of document.querySelectorAll('[data-filter]')) {
-      item.setAttribute('aria-pressed', hidden.has(item.dataset.filter) ? 'false' : 'true')
+    if (!('focusGroup' in HTMLElement.prototype)) {
+      const tools = [...document.querySelectorAll('[role="toolbar"] button')]
+      const visible = tools.filter((item) => !item.hidden)
+      for (const item of tools) if (item.hidden) item.tabIndex = -1
+      if (visible.length && !visible.some((item) => item.tabIndex === 0)) {
+        visible.forEach((item, index) => { item.tabIndex = index === 0 ? 0 : -1 })
+      }
     }
     acili.hidden = ui.mode !== 'sema'
     acili.setAttribute('aria-pressed', ui.schemaTilt ? 'true' : 'false')
@@ -137,35 +139,42 @@ export function mount(hooks) {
       modeller.append(empty)
     }
 
-    parcalar.replaceChildren()
-    for (const component of state.components) {
-      const row = document.createElement('li')
-      const name = button(`${component.name} · ${componentPorts(state, component).length} uç`, () => hooks.onSelect?.({ kind: 'component', id: component.id }))
-      name.setAttribute('aria-pressed', ui.selection?.kind === 'component' && ui.selection.id === component.id ? 'true' : 'false')
-      name.addEventListener('pointerenter', () => hooks.onHover?.({ kind: 'component', componentId: component.id }))
-      name.addEventListener('pointerleave', () => hooks.onHover?.(null))
-      row.append(name)
-      parcalar.append(row)
-    }
-
-    kablolar.replaceChildren()
-    for (const cable of state.cables) {
-      const row = document.createElement('li')
-      const from = `${componentName(state, cable.a.componentId)} ${portName(state, cable.a.componentId, cable.a.portId)}`
-      const to = `${componentName(state, cable.b.componentId)} ${portName(state, cable.b.componentId, cable.b.portId)}`
-      const pair = matchCable(
-        portTypeOf(state, cable.a.componentId, cable.a.portId),
-        portTypeOf(state, cable.b.componentId, cable.b.portId)
-      )
-      const bad = portTypeOf(state, cable.a.componentId, cable.a.portId)
-        && portTypeOf(state, cable.b.componentId, cable.b.portId)
-        && !pair
-      const name = button(`${cable.name}: ${from} → ${to}${bad ? ' · uyumsuz' : ''}`, () => hooks.onSelect?.({ kind: 'cable', id: cable.id }))
-      name.setAttribute('aria-pressed', ui.selection?.kind === 'cable' && ui.selection.id === cable.id ? 'true' : 'false')
-      name.addEventListener('pointerenter', () => hooks.onHover?.({ kind: 'cable', cableId: cable.id }))
-      name.addEventListener('pointerleave', () => hooks.onHover?.(null))
-      row.append(name)
-      kablolar.append(row)
+    const picked = selectedComponent(state, ui)
+    secilen.hidden = !picked
+    bagli.replaceChildren()
+    if (picked) {
+      const model = state.models.find((item) => item.id === picked.modelId)
+      secilenNe.textContent = model?.name || picked.name
+      const same = !model || model.name === picked.name
+      secilenAd.hidden = same
+      secilenAd.textContent = same ? '' : picked.name
+      const linked = state.cables.filter((cable) => cable.a.componentId === picked.id || cable.b.componentId === picked.id)
+      if (linked.length === 0) {
+        const empty = document.createElement('li')
+        empty.className = 'not'
+        empty.textContent = 'Bağlı kablo yok.'
+        bagli.append(empty)
+      }
+      for (const cable of linked) {
+        const other = cable.a.componentId === picked.id ? cable.b : cable.a
+        const pair = matchCable(
+          portTypeOf(state, cable.a.componentId, cable.a.portId),
+          portTypeOf(state, cable.b.componentId, cable.b.portId)
+        )
+        const bad = portTypeOf(state, cable.a.componentId, cable.a.portId)
+          && portTypeOf(state, cable.b.componentId, cable.b.portId)
+          && !pair
+        const row = document.createElement('li')
+        const name = button(
+          `${cable.name} → ${componentName(state, other.componentId)} ${portName(state, other.componentId, other.portId)}${bad ? ' · uyumsuz' : ''}`,
+          () => hooks.onSelect?.({ kind: 'cable', id: cable.id })
+        )
+        name.setAttribute('aria-pressed', ui.selection?.kind === 'cable' && ui.selection.id === cable.id ? 'true' : 'false')
+        name.addEventListener('pointerenter', () => hooks.onHover?.({ kind: 'cable', cableId: cable.id }))
+        name.addEventListener('pointerleave', () => hooks.onHover?.(null))
+        row.append(name)
+        bagli.append(row)
+      }
     }
 
     const active = document.activeElement
@@ -280,8 +289,18 @@ export function mount(hooks) {
     note.className = 'not'
     note.textContent = ui.mode === 'incele'
       ? 'Porta tıklayınca seçilir. Model görünür kalır.'
-      : 'Listeden veya sahneden bir parça seç.'
+      : 'Sahneden bir parça seç.'
     secili.append(note)
+  }
+
+  function selectedComponent(state, ui) {
+    if (ui.selection?.kind === 'component') {
+      return state.components.find((item) => item.id === ui.selection.id) || null
+    }
+    if (ui.selection?.kind === 'port' && ui.selection.componentId && ui.selection.componentId !== 'incele') {
+      return state.components.find((item) => item.id === ui.selection.componentId) || null
+    }
+    return null
   }
 
   return {

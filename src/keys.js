@@ -70,7 +70,7 @@ export function bindTabs(tablist, onSelect) {
 
 export function bindToolbar(toolbar) {
   if ('focusGroup' in HTMLElement.prototype) return
-  const items = () => [...toolbar.querySelectorAll('button')]
+  const items = () => [...toolbar.querySelectorAll('button')].filter((button) => !button.hidden)
   const list = items()
   list.forEach((button, index) => {
     button.tabIndex = index === 0 ? 0 : -1

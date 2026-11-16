@@ -17,7 +17,6 @@ import {
   removeModel,
   removeModelPort,
   removePort,
-  toggleType,
   uid,
   updateCable,
   updateComponent
@@ -34,9 +33,8 @@ let poseMark = false
 
 const ui = mount({
   onMode: (mode) => {
-    uiState = { ...uiState, mode }
     pinInspect()
-    view.setMode(mode)
+    applyMode(mode)
     publish(false)
   },
   onSchemaTilt: () => {
@@ -45,20 +43,9 @@ const ui = mount({
     publish(false)
   },
   onTool: (tool) => {
+    if (tool === 'kablo' && uiState.mode === 'incele') return
+    if (tool === 'port' && uiState.mode === 'sema') return
     uiState = { ...uiState, tool }
-    if (tool === 'port') {
-      const modelId = uiState.inspectId
-        || state.components.find((item) => item.id === uiState.selection?.id)?.modelId
-        || state.models[0]?.id
-      if (modelId) {
-        uiState = { ...uiState, inspectId: modelId, mode: 'incele', tool }
-        view.setMode('incele')
-      }
-    }
-    if (tool === 'kablo' && uiState.mode === 'incele') {
-      uiState = { ...uiState, mode: 'yerlesim', tool }
-      view.setMode('yerlesim')
-    }
     view.setTool(tool)
     publish(false)
   },
@@ -66,11 +53,10 @@ const ui = mount({
     uiState = { ...uiState, cableType }
     publish(false)
   },
-  onFilter: (type) => commit(toggleType(state, type)),
   onUpload: (files) => { upload(files) },
   onInspect: (modelId) => {
-    uiState = { ...uiState, inspectId: modelId, mode: 'incele', selection: null }
-    view.setMode('incele')
+    uiState = { ...uiState, inspectId: modelId, selection: null }
+    applyMode('incele')
     publish(false)
   },
   onPlace: (modelId) => place(modelId),
@@ -144,12 +130,13 @@ const view = new View(document.getElementById('sahne'), {
     }), 'Bağlantı noktası eklendi.')
   },
   onModelPort: async (port) => {
-    if (!uiState.inspectId) return
+    const modelId = port.modelId || uiState.inspectId
+    if (!modelId) return
     const type = await ui.askType()
     if (!type) return
-    const model = state.models.find((item) => item.id === uiState.inspectId)
+    const model = state.models.find((item) => item.id === modelId)
     const count = (model?.ports || []).filter((item) => item.type === type).length + 1
-    commit(addModelPort(state, uiState.inspectId, {
+    commit(addModelPort(state, modelId, {
       id: uid(),
       name: `${typeName(type)} ${count}`,
       type,
@@ -284,6 +271,15 @@ async function place(modelId) {
   view.frameComponent(created.id)
 }
 
+function applyMode(mode) {
+  let tool = uiState.tool
+  if (mode === 'incele' && tool === 'kablo') tool = 'sec'
+  if (mode === 'sema' && tool === 'port') tool = 'sec'
+  uiState = { ...uiState, mode, tool }
+  view.setMode(mode)
+  view.setTool(tool)
+}
+
 function undo() {
   const previous = past.pop()
   if (!previous) return
@@ -334,8 +330,7 @@ window.addEventListener('keydown', (event) => {
     }
   }
   if (event.key === '1' || event.key === '2' || event.key === '3') {
-    uiState = { ...uiState, mode: event.key === '1' ? 'incele' : event.key === '2' ? 'yerlesim' : 'sema' }
-    view.setMode(uiState.mode)
+    applyMode(event.key === '1' ? 'incele' : event.key === '2' ? 'yerlesim' : 'sema')
     publish(false)
   }
   if (event.key.toLowerCase() === 'f') view.frame()

@@ -995,7 +995,7 @@ export class View {
       this.setBox(null)
       return
     }
-    const editing = Boolean(group) && this.tool !== 'kablo'
+    const editing = Boolean(group) && this.tool !== 'kablo' && this.tool !== 'port'
     if (!editing) {
       this.transform.detach()
       this.setBox(group && this.mode !== 'incele' ? group : null)
@@ -1458,6 +1458,11 @@ export class View {
       this.hooks.onSelect?.({ kind: 'port', componentId: 'incele', portId: hit.portId })
       return
     }
+    if (this.mode === 'yerlesim' && this.tool === 'port' && hit?.kind === 'component') {
+      this.hooks.onSelect?.({ kind: 'component', id: hit.componentId })
+      this.createPlacedPort(hit)
+      return
+    }
     if (this.tool === 'kablo' && hit?.kind === 'port') {
       this.pickCablePort(hit)
       return
@@ -1485,6 +1490,25 @@ export class View {
     if (worldNormal.dot(towardCamera) < 0) worldNormal.negate()
     const normal = worldNormal.clone().transformDirection(inverse).normalize()
     this.hooks.onModelPort?.({
+      position: [point.x, point.y, point.z],
+      normal: [normal.x, normal.y, normal.z]
+    })
+  }
+
+  createPlacedPort(hit) {
+    const group = this.groups.get(hit.componentId)
+    const align = group?.children[0]
+    const component = this.state.components.find((item) => item.id === hit.componentId)
+    if (!align || !component || !hit.face) return
+    align.updateWorldMatrix(true, false)
+    const inverse = align.matrixWorld.clone().invert()
+    const point = hit.point.clone().applyMatrix4(inverse)
+    const worldNormal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize()
+    const towardCamera = this.activeCamera().position.clone().sub(hit.point).normalize()
+    if (worldNormal.dot(towardCamera) < 0) worldNormal.negate()
+    const normal = worldNormal.clone().transformDirection(inverse).normalize()
+    this.hooks.onModelPort?.({
+      modelId: component.modelId,
       position: [point.x, point.y, point.z],
       normal: [normal.x, normal.y, normal.z]
     })

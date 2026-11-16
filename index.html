@@ -27,27 +27,6 @@
       <p id="durum" role="status"></p>
     </header>
 
-    <div class="arac" role="toolbar" focusgroup="toolbar wrap" aria-label="Düzenleme" aria-controls="gorunum">
-      <div role="group" aria-label="Araç">
-        <button type="button" data-tool="sec" aria-pressed="true">Seç</button>
-        <button type="button" data-tool="tasi" aria-pressed="false">Taşı</button>
-        <button type="button" data-tool="dondur" aria-pressed="false">Döndür</button>
-        <button type="button" data-tool="port" aria-pressed="false">Port işaretle</button>
-        <button type="button" data-tool="kablo" aria-pressed="false">Kablo yerleştir</button>
-      </div>
-      <span role="separator" aria-orientation="vertical"></span>
-      <div role="group" aria-label="Görünen kablo türleri">
-        <button type="button" data-filter="sma" aria-pressed="true">RF SMA</button>
-        <button type="button" data-filter="ntype" aria-pressed="true">RF N</button>
-        <button type="button" data-filter="usb2" aria-pressed="true">USB 2.0</button>
-        <button type="button" data-filter="usb3" aria-pressed="true">USB 3.0</button>
-        <button type="button" data-filter="usbc" aria-pressed="true">USB Type-C</button>
-        <button type="button" data-filter="ag" aria-pressed="true">Ethernet</button>
-        <button type="button" data-filter="guc" aria-pressed="true">Güç</button>
-      </div>
-    </div>
-    <p id="ipucu">Bir parçanın veya kablonun üzerine gel. Bağlı uçlar açık kalır, kalan kararır.</p>
-
     <div class="alan">
       <aside class="yan" id="kutuphane">
         <section>
@@ -57,20 +36,31 @@
           <p class="not">GLB dosyasını buraya bırak.</p>
           <ul id="modeller"></ul>
         </section>
-        <section>
-          <h2>Parçalar</h2>
-          <ul id="parcalar"></ul>
-        </section>
-        <section>
-          <h2>Kablolar</h2>
-          <ul id="kablolar"></ul>
+        <section id="secilen" hidden>
+          <h2>Parça</h2>
+          <p id="secilen-ne"></p>
+          <p id="secilen-ad" class="not"></p>
+          <h2>Bağlı kablolar</h2>
+          <ul id="bagli"></ul>
         </section>
       </aside>
 
-      <div id="gorunum" role="tabpanel" aria-labelledby="tab-yerlesim" tabindex="0">
-        <canvas id="sahne" aria-label="Üç boyutlu görünüm"></canvas>
-        <button type="button" id="acili" hidden aria-pressed="true">Açılı bakış</button>
-        <p id="bos">Modeli incele, port işaretle, sahneye koy, kablo yerleştir.</p>
+      <div id="ekran">
+        <div class="arac" role="toolbar" focusgroup="toolbar wrap" aria-label="Düzenleme" aria-controls="gorunum">
+          <div role="group" aria-label="Araç">
+            <button type="button" data-tool="sec" aria-pressed="true">Seç</button>
+            <button type="button" data-tool="tasi" aria-pressed="false">Taşı</button>
+            <button type="button" data-tool="dondur" aria-pressed="false">Döndür</button>
+            <button type="button" data-tool="port" aria-pressed="false">Port işaretle</button>
+            <button type="button" data-tool="kablo" aria-pressed="false">Kablo yerleştir</button>
+          </div>
+        </div>
+        <p id="ipucu">Bir parçanın veya kablonun üzerine gel. Bağlı uçlar açık kalır, kalan kararır.</p>
+        <div id="gorunum" role="tabpanel" aria-labelledby="tab-yerlesim" tabindex="0">
+          <canvas id="sahne" aria-label="Üç boyutlu görünüm"></canvas>
+          <button type="button" id="acili" hidden aria-pressed="true">Açılı bakış</button>
+          <p id="bos">Modeli incele, port işaretle, sahneye koy, kablo yerleştir.</p>
+        </div>
       </div>
 
       <aside class="yan" id="denetim">
