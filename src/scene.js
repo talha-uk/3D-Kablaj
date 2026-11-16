@@ -5,7 +5,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { clone as cloneObject } from 'three/addons/utils/SkeletonUtils.js'
 import { focusFor } from './focus.js'
-import { SCHEMA_TILT, aimAhead, cameraPlacement, flyDelta, groundAxes, panFocus, pickView, schemaPose, turnLook } from './fly.js'
+import { SCHEMA_TILT, aimAhead, cameraPlacement, flyDelta, groundAxes, panFocus, schemaPose, turnLook } from './fly.js'
 import { createViewCube, markCube, syncViewCube } from './viewcube.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
@@ -868,7 +868,12 @@ export class View {
         : plain
       if (!points) continue
       const curve = new THREE.CatmullRomCurve3(points.map((point) => new THREE.Vector3().fromArray(point)))
-      curve.curveType = 'centripetal'
+      if (this.mode === 'sema') {
+        curve.curveType = 'catmullrom'
+        curve.tension = 0.08
+      } else {
+        curve.curveType = 'centripetal'
+      }
       const radius = (CABLE_RADIUS[cable.type] || 0.008) * (this.mode === 'sema' ? 0.7 : 1)
       const tubular = Math.max(20, Math.round(curve.getLength() * 40))
       const geometry = new THREE.TubeGeometry(curve, tubular, radius, 8, false)
@@ -905,7 +910,13 @@ export class View {
 
   plainRoute(a, b, cable) {
     if (this.mode === 'sema') {
-      return routeSchema(a.position, a.normal, b.position, b.normal, SCHEMA_LIFT[cable.type] || 0.02, [0, 0])
+      const footprints = []
+      for (const group of this.groups.values()) {
+        const box = new THREE.Box3().setFromObject(group)
+        if (box.isEmpty()) continue
+        footprints.push({ minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z })
+      }
+      return routeSchema(a.position, a.normal, b.position, b.normal, SCHEMA_LIFT[cable.type] || 0.02, [0, 0], footprints)
     }
     const boxes = []
     for (const group of this.groups.values()) {
@@ -1624,7 +1635,7 @@ export class View {
   }
 
   cubeBox(width, height) {
-    const size = Math.round(Math.min(112, Math.max(72, Math.min(width, height) * 0.2)))
+    const size = Math.round(Math.min(156, Math.max(104, Math.min(width, height) * 0.28)))
     return { x: width - size - 12, y: height - size - 12, size }
   }
 
@@ -1642,11 +1653,8 @@ export class View {
       -((py - box.y) / box.size) * 2 + 1
     )
     this.cubeRay.setFromCamera(ndc, this.cube.camera)
-    const hit = this.cubeRay.intersectObject(this.cube.pick, false)[0]
-    if (!hit?.face) return null
-    const point = this.cube.pick.worldToLocal(hit.point.clone())
-    const normal = hit.face.normal
-    return pickView([point.x, point.y, point.z], [normal.x, normal.y, normal.z])
+    const hit = this.cubeRay.intersectObjects(this.cube.picks, false)[0]
+    return hit?.object.userData.dir || null
   }
 
   paintCube(event) {
@@ -1654,7 +1662,7 @@ export class View {
     const key = dir ? dir.map((value) => value.toFixed(3)).join() : ''
     if (key === this.cubeKey) return Boolean(dir)
     this.cubeKey = key
-    markCube(this.cube.faces, dir)
+    markCube(this.cube.picks, dir)
     this.requestRender()
     return Boolean(dir)
   }
@@ -1687,7 +1695,7 @@ export class View {
     this.renderer.setScissor(box.x, glY, box.size, box.size)
     const auto = this.renderer.autoClear
     this.renderer.autoClear = false
-    this.renderer.clear(true, true, false)
+    this.renderer.clear(false, true, false)
     this.renderer.render(this.cube.scene, this.cube.camera)
     this.renderer.autoClear = auto
     this.renderer.setScissorTest(false)

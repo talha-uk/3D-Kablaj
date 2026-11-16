@@ -64,6 +64,18 @@ check('yerleşim kablosu sarkar', placed && placed[2][1] < 0)
 const flat = routeSchema([0, 1, 0], [1, 0, 0], [2, 1, 1], [-1, 0, 0], 0.02, [0, 0])
 check('şema kablosu aynı yükseklikte', flat && flat.every((point) => Math.abs(point[1] - 0.02) < 1e-6))
 check('şema kablosu iki ucu bağlar', flat[0][0] === 0 && flat.at(-1)[0] === 2)
+const schemaBlocked = routeSchema(
+  [0.5, 0, 0], [1, 0, 0],
+  [2.5, 0, 0], [-1, 0, 0],
+  0.02, [0, 0],
+  [
+    { minX: -0.5, maxX: 0.5, minZ: -0.5, maxZ: 0.5 },
+    { minX: 1, maxX: 2, minZ: -0.4, maxZ: 0.4 },
+    { minX: 2.5, maxX: 3.5, minZ: -0.5, maxZ: 0.5 }
+  ]
+)
+const throughMiddle = schemaBlocked.slice(1, -1).some((point) => point[0] > 1.02 && point[0] < 1.98 && Math.abs(point[2]) < 0.38)
+check('şema kablosu modelin dışından gider', schemaBlocked && !throughMiddle && schemaBlocked.some((point) => Math.abs(point[2]) >= 0.49))
 
 const blocked = routeClear([-2, 0, 0], [-1, 0, 0], [2, 0, 0], [1, 0, 0], [{ min: [-0.4, -0.4, -0.4], max: [0.4, 0.4, 0.4] }], 0)
 const samples = []
