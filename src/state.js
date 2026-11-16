@@ -138,15 +138,42 @@ export function removeModel(state, modelId) {
   return { ...state, models: state.models.filter((item) => item.id !== modelId) }
 }
 
+export function measureOf(model) {
+  const olcu = model?.olcu || {}
+  return {
+    points: olcu.points || [],
+    en: olcu.en ?? null,
+    boy: olcu.boy ?? null,
+    derinlik: olcu.derinlik ?? null,
+    cift: olcu.cift || null
+  }
+}
+
+export function writeMeasure(state, modelId, olcu, olcek) {
+  const scale = Number.isFinite(olcek) && olcek > 0 ? olcek : null
+  return {
+    ...state,
+    models: state.models.map((item) => (
+      item.id === modelId
+        ? { ...item, olcu, olcek: scale ?? item.olcek ?? null }
+        : item
+    )),
+    components: scale
+      ? state.components.map((item) => (item.modelId === modelId ? { ...item, scale } : item))
+      : state.components
+  }
+}
+
 export function addComponent(state, modelId, name) {
   const spot = place(state.components.length)
+  const model = state.models.find((item) => item.id === modelId)
   const component = {
     id: uid(),
     name,
     modelId,
     position: [spot.x, 0, spot.z],
     yaw: 0,
-    scale: 1,
+    scale: model?.olcek || 1,
     schema: { x: spot.x, z: spot.z, yaw: 0 },
     ports: []
   }

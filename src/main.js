@@ -1,8 +1,10 @@
 import { View } from './scene.js'
 import { mount } from './ui.js'
+import { cableLengthCm, scaleFromBox, scaleFromPair } from './olcu.js'
 import {
   addCable,
   matchCable,
+  measureOf,
   portTypeOf,
   typeName,
   addComponent,
@@ -19,7 +21,8 @@ import {
   removePort,
   uid,
   updateCable,
-  updateComponent
+  updateComponent,
+  writeMeasure
 } from './state.js'
 import { downloadProject, loadProject, modelBuffer, rememberBuffer, saveProject, uploadModel } from './persist.js'
 
@@ -40,6 +43,7 @@ const ui = mount({
   onTool: (tool) => {
     if (tool === 'kablo' && uiState.mode === 'incele') return
     if (tool === 'port' && uiState.mode === 'sema') return
+    if (tool === 'olcu' && uiState.mode !== 'incele') return
     uiState = { ...uiState, tool }
     view.setTool(tool)
     publish(false)
@@ -96,6 +100,10 @@ const ui = mount({
     commit({ ...emptyState(), models: state.models }, 'Yeni düzenek.')
   },
   onDownload: () => downloadProject(state),
+  onOlcu: (modelId, olcu) => applyMeasure(modelId, olcu, 'kutu'),
+  onOlcuPair: (modelId, olcu) => applyMeasure(modelId, olcu, 'cift'),
+  fitOf: (modelId) => view.fitOf(modelId),
+  cableLength: (cable) => cableLengthCm(state, cable, (id) => view.fitOf(id)),
   onOpen: async (file) => {
     try {
       const next = JSON.parse(await file.text())
@@ -138,6 +146,14 @@ const view = new View(document.getElementById('sahne'), {
       position: port.position,
       normal: port.normal
     }), 'Port işaretlendi.')
+  },
+  onMeasurePoint: (point) => {
+    const modelId = uiState.inspectId
+    if (!modelId) return
+    const model = state.models.find((item) => item.id === modelId)
+    const olcu = measureOf(model)
+    olcu.points = [...olcu.points, { id: uid(), position: point.position }]
+    applyMeasure(modelId, olcu, 'kutu')
   },
   cableOk: (ends) => {
     const a = portTypeOf(state, ends.a.componentId, ends.a.portId)
@@ -270,9 +286,24 @@ function applyMode(mode) {
   let tool = uiState.tool
   if (mode === 'incele' && tool === 'kablo') tool = 'sec'
   if (mode === 'sema' && tool === 'port') tool = 'sec'
+  if (mode !== 'incele' && tool === 'olcu') tool = 'sec'
   uiState = { ...uiState, mode, tool }
   view.setMode(mode)
   view.setTool(tool)
+}
+
+function applyMeasure(modelId, olcu, source) {
+  const fit = view.fitOf(modelId)
+  const model = state.models.find((item) => item.id === modelId)
+  let olcek = null
+  if (source === 'cift' && olcu.cift) {
+    const a = olcu.points.find((point) => point.id === olcu.cift.a)
+    const b = olcu.points.find((point) => point.id === olcu.cift.b)
+    if (a && b) olcek = scaleFromPair(a.position, b.position, olcu.cift.cm, fit?.s)
+  } else {
+    olcek = scaleFromBox(olcu.points, olcu, fit?.s)
+  }
+  commit(writeMeasure(state, modelId, olcu, olcek ?? model?.olcek ?? null), 'Ölçü güncellendi.')
 }
 
 function undo() {

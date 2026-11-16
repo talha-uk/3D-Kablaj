@@ -681,7 +681,7 @@ export class View {
     this.pivots.clear()
     for (const component of this.state.components) {
       const record = this.state.models.find((item) => item.id === component.modelId)
-      const signature = `${component.modelId}:${JSON.stringify(record?.ports || [])}:${JSON.stringify(component.ports)}`
+      const signature = `${component.modelId}:${JSON.stringify(record?.ports || [])}:${JSON.stringify(record?.olcu?.points || [])}:${JSON.stringify(component.ports)}`
       let group = this.groups.get(component.id)
       if (!group || group.userData.signature !== signature) {
         if (group) {
@@ -721,6 +721,7 @@ export class View {
     const record = this.state.models.find((item) => item.id === component.modelId)
     const ports = [...(record?.ports || []), ...(component.ports || [])]
     for (const port of ports) align.add(this.makePort(component, port, fit.s))
+    this.addMeasureMarks(align, record?.olcu?.points || [], fit.s)
     const group = new THREE.Group()
     group.name = component.id
     group.userData.componentId = component.id
@@ -781,7 +782,8 @@ export class View {
     const model = modelId ? this.models.get(modelId) : null
     const record = this.state?.models.find((item) => item.id === modelId)
     const ports = record?.ports || []
-    const signature = `${modelId}:${JSON.stringify(ports)}`
+    const marks = record?.olcu?.points || []
+    const signature = `${modelId}:${JSON.stringify(ports)}:${JSON.stringify(marks)}`
     if (!model) {
       if (this.inspectRoot.userData.signature !== '') {
         this.clearGroup(this.inspectRoot)
@@ -811,6 +813,7 @@ export class View {
     })
     align.add(visual)
     for (const port of ports) align.add(this.makePort({ id: 'incele' }, port, fit.s))
+    this.addMeasureMarks(align, marks, fit.s)
     this.inspectRoot.add(align)
     this.indexPivots(this.inspectRoot)
     if (!keepCamera) this.frameObject(this.inspectRoot)
@@ -1004,7 +1007,7 @@ export class View {
       this.setBox(null)
       return
     }
-    const editing = Boolean(group) && this.tool !== 'kablo' && this.tool !== 'port'
+    const editing = Boolean(group) && this.tool !== 'kablo' && this.tool !== 'port' && this.tool !== 'olcu'
     if (!editing) {
       this.transform.detach()
       this.setBox(group && this.mode !== 'incele' ? group : null)
@@ -1477,6 +1480,7 @@ export class View {
   click(hit) {
     if (this.mode === 'incele' && hit?.kind === 'submesh') {
       if (this.tool === 'port') this.createModelPort(hit)
+      if (this.tool === 'olcu') this.createMeasurePoint(hit)
       return
     }
     if (this.mode === 'incele' && hit?.kind === 'port' && this.tool !== 'kablo') {
@@ -1502,7 +1506,40 @@ export class View {
     }
     else if (hit.kind === 'port') this.hooks.onSelect?.({ kind: 'port', componentId: hit.componentId, portId: hit.portId })
     else if (hit.kind === 'component') this.hooks.onSelect?.({ kind: 'component', id: hit.componentId })
+    else if (hit.kind === 'olcu') this.hooks.status?.('Ölçü noktası duruyor.')
     else if (hit.kind === 'submesh') this.setHover(hit)
+  }
+
+  fitOf(modelId) {
+    return this.models.get(modelId)?.fit || null
+  }
+
+  addMeasureMarks(align, points, fitScale) {
+    for (const point of points) {
+      const geometry = new THREE.SphereGeometry(0.014 / fitScale, 16, 12)
+      geometry.userData.owned = true
+      const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+        color: 0x2f8f4e,
+        roughness: 0.35,
+        metalness: 0.05,
+        emissive: 0x14532d,
+        emissiveIntensity: 0.45
+      }))
+      mesh.position.fromArray(point.position)
+      mesh.userData.kind = 'olcu'
+      mesh.userData.pointId = point.id
+      align.add(mesh)
+    }
+  }
+
+  createMeasurePoint(hit) {
+    const align = this.inspectRoot.children[0]
+    if (!align || !hit.face) return
+    const inverse = align.matrixWorld.clone().invert()
+    const point = hit.point.clone().applyMatrix4(inverse)
+    this.hooks.onMeasurePoint?.({
+      position: [point.x, point.y, point.z]
+    })
   }
 
   createModelPort(hit) {

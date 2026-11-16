@@ -1,4 +1,5 @@
-import { componentName, componentPorts, matchCable, portName, portTypeOf, typeName } from './state.js'
+import { pairCm, axisSpans } from './olcu.js'
+import { componentName, componentPorts, matchCable, measureOf, portName, portTypeOf, typeName } from './state.js'
 import { bindTabs, bindToolbar } from './keys.js'
 
 const HINT = {
@@ -6,7 +7,8 @@ const HINT = {
   tasi: 'Parçayı oklarla taşı. Herhangi bir portu tutup modelin yüzeyinde kaydır.',
   dondur: 'Modeli yeşil halkadan çevir. Port seçiliyken portu tutup çevirirsin, halka portu gömmez.',
   port: 'Yerleşimde veya incelede yüzeye tıkla. RF SMA, RF N, USB 2.0, USB 3.0, USB Type-C, Ethernet veya Güç.',
-  kablo: 'Önce bir port, sonra öteki. Aynı tür bağlanır. SMA–N, Ethernet–Type-C ve USB ara kablosu da olur.'
+  kablo: 'Önce bir port, sonra öteki. Aynı tür bağlanır. SMA–N, Ethernet–Type-C ve USB ara kablosu da olur.',
+  olcu: 'Köşelere tıkla. SMA gibi çıkıntıları boş bırak. Sağda en, boy ve derinlik gir.'
 }
 
 function button(label, onClick) {
@@ -89,7 +91,9 @@ export function mount(hooks) {
     if (document.activeElement !== projeAd) projeAd.value = state.name
     for (const item of document.querySelectorAll('[data-tool]')) {
       const tool = item.dataset.tool
-      item.hidden = (ui.mode === 'incele' && tool === 'kablo') || (ui.mode === 'sema' && tool === 'port')
+      item.hidden = (ui.mode === 'incele' && tool === 'kablo')
+        || (ui.mode === 'sema' && tool === 'port')
+        || (ui.mode !== 'incele' && tool === 'olcu')
       item.setAttribute('aria-pressed', tool === ui.tool ? 'true' : 'false')
       item.setAttribute('aria-disabled', 'false')
     }
@@ -176,8 +180,9 @@ export function mount(hooks) {
             && portTypeOf(state, cable.b.componentId, cable.b.portId)
             && !pair
           const row = document.createElement('li')
+          const cm = hooks.cableLength?.(cable)
           const name = button(
-            `${cable.name} → ${componentName(state, other.componentId)} ${portName(state, other.componentId, other.portId)}${bad ? ' · uyumsuz' : ''}`,
+            `${cable.name} → ${componentName(state, other.componentId)} ${portName(state, other.componentId, other.portId)}${cm == null ? '' : ` · ${cm.toFixed(1)} cm`}${bad ? ' · uyumsuz' : ''}`,
             () => hooks.onSelect?.({ kind: 'cable', id: cable.id })
           )
           name.setAttribute('aria-pressed', ui.selection?.kind === 'cable' && ui.selection.id === cable.id ? 'true' : 'false')
@@ -256,7 +261,7 @@ export function mount(hooks) {
       const scale = document.createElement('input')
       scale.type = 'number'
       scale.min = '0.1'
-      scale.max = '20'
+      scale.max = '1000'
       scale.step = '0.1'
       scale.value = String(component.scale || 1)
       scale.addEventListener('change', () => hooks.onScale?.(component.id, Number(scale.value)))
@@ -285,6 +290,7 @@ export function mount(hooks) {
         button('Çoğalt', () => hooks.onDuplicate?.(component.id)),
         button('Sil', () => hooks.onDeleteComponent?.(component.id))
       )
+      if (ui.mode === 'incele') appendInspect(state, ui, chosenPort)
       secili.append(form, ports, actions)
       return
     }
@@ -309,40 +315,177 @@ export function mount(hooks) {
           ? `${typeName(aType)} ile ${typeName(bType)} bağlanmaz.`
           : typeName(cable.type)
       form.append(nameLabel, kind)
-      secili.append(form, button('Sil', () => hooks.onDeleteCable?.(cable.id)))
+      const cm = hooks.cableLength?.(cable)
+      const length = document.createElement('p')
+      length.className = 'not'
+      length.textContent = cm == null ? 'Boy: ölçü yok' : `Boy: ${cm.toFixed(1)} cm`
+      if (ui.mode === 'incele') appendInspect(state, ui, chosenPort)
+      secili.append(form, length, button('Sil', () => hooks.onDeleteCable?.(cable.id)))
       return
     }
-    if (ui.mode === 'incele' && ui.inspectId) {
-      const model = state.models.find((item) => item.id === ui.inspectId)
-      const head = document.createElement('p')
-      head.textContent = model ? `${model.name} portları` : 'Portlar'
-      const ports = document.createElement('ul')
-      for (const port of model?.ports || []) {
-        const row = document.createElement('li')
-        row.className = 'satir-oge'
-        const pick = { kind: 'port', componentId: 'incele', portId: port.id }
-        const name = button(port.name, () => hooks.onSelect?.(pick))
-        name.setAttribute('aria-pressed', chosenPort?.portId === port.id ? 'true' : 'false')
-        name.addEventListener('pointerenter', () => hooks.onHover?.(pick))
-        name.addEventListener('pointerleave', () => hooks.onHover?.(null))
-        row.append(name, button('Sil', () => hooks.onRemoveModelPort?.(model.id, port.id)))
-        ports.append(row)
-      }
-      if (!(model?.ports || []).length) {
-        const empty = document.createElement('li')
-        empty.className = 'not'
-        empty.textContent = 'Yüzeye tıklayıp tür seç.'
-        ports.append(empty)
-      }
-      secili.append(head, ports)
-      return
-    }
+    appendInspect(state, ui, chosenPort)
+    if (secili.childElementCount) return
     const note = document.createElement('p')
     note.className = 'not'
     note.textContent = ui.mode === 'incele'
       ? 'Porta tıklayınca seçilir. Model görünür kalır.'
       : 'Soldan veya sahneden bir parça seç.'
     secili.append(note)
+  }
+
+  function appendInspect(state, ui, chosenPort) {
+    if (ui.mode !== 'incele' || !ui.inspectId) return
+    const model = state.models.find((item) => item.id === ui.inspectId)
+    if (!model) return
+    const head = document.createElement('p')
+    head.textContent = `${model.name} portları`
+    const ports = document.createElement('ul')
+    for (const port of model.ports || []) {
+      const row = document.createElement('li')
+      row.className = 'satir-oge'
+      const pick = { kind: 'port', componentId: 'incele', portId: port.id }
+      const name = button(port.name, () => hooks.onSelect?.(pick))
+      name.setAttribute('aria-pressed', chosenPort?.portId === port.id ? 'true' : 'false')
+      name.addEventListener('pointerenter', () => hooks.onHover?.(pick))
+      name.addEventListener('pointerleave', () => hooks.onHover?.(null))
+      row.append(name, button('Sil', () => hooks.onRemoveModelPort?.(model.id, port.id)))
+      ports.append(row)
+    }
+    if (!(model.ports || []).length) {
+      const empty = document.createElement('li')
+      empty.className = 'not'
+      empty.textContent = 'Yüzeye tıklayıp tür seç.'
+      ports.append(empty)
+    }
+    secili.append(head, ports, measurePanel(state, model))
+  }
+
+  function cmInput(label, value, onValue) {
+    const wrap = document.createElement('label')
+    wrap.textContent = label
+    const input = document.createElement('input')
+    input.type = 'number'
+    input.min = '0'
+    input.step = '0.1'
+    input.inputMode = 'decimal'
+    input.value = value ?? ''
+    input.addEventListener('change', () => {
+      const next = Number(input.value)
+      onValue(Number.isFinite(next) && next > 0 ? next : null)
+    })
+    wrap.append(input)
+    return wrap
+  }
+
+  function measurePanel(state, model) {
+    const olcu = measureOf(model)
+    const fit = hooks.fitOf?.(model.id)
+    const scale = model.olcek || 1
+    const box = document.createElement('div')
+    box.className = 'alan-form'
+    const title = document.createElement('h2')
+    title.textContent = 'Ölçü'
+    const note = document.createElement('p')
+    note.className = 'not'
+    note.textContent = 'Köşe noktalarının kutusu bu santimetreye gelir. Kutunun dışında kalan çıkıntı hesaba katılmaz.'
+    const save = (patch) => hooks.onOlcu?.(model.id, { ...olcu, ...patch })
+    box.append(
+      title,
+      note,
+      cmInput('En (cm)', olcu.en, (en) => save({ en })),
+      cmInput('Boy (cm)', olcu.boy, (boy) => save({ boy })),
+      cmInput('Derinlik (cm)', olcu.derinlik, (derinlik) => save({ derinlik }))
+    )
+    const points = document.createElement('ul')
+    olcu.points.forEach((point, index) => {
+      const row = document.createElement('li')
+      row.className = 'satir-oge'
+      const name = document.createElement('span')
+      name.textContent = `Nokta ${index + 1}`
+      row.append(name, button('Sil', () => {
+        save({ points: olcu.points.filter((item) => item.id !== point.id) })
+      }))
+      points.append(row)
+    })
+    if (!olcu.points.length) {
+      const empty = document.createElement('li')
+      empty.className = 'not'
+      empty.textContent = 'Ölçü noktası ile köşelere tıkla.'
+      points.append(empty)
+    }
+    box.append(points)
+    if (fit && olcu.points.length >= 2) {
+      const span = axisSpans(olcu.points)
+      const now = document.createElement('p')
+      now.className = 'not'
+      const cm = (value) => (fit.s * scale * value).toFixed(1)
+      now.textContent = `Nokta kutusu şimdi ${cm(span.x)} × ${cm(span.y)} × ${cm(span.z)} cm`
+      box.append(now)
+    }
+    const pairTitle = document.createElement('h2')
+    pairTitle.textContent = 'İki nokta'
+    const pairNote = document.createElement('p')
+    pairNote.className = 'not'
+    pairNote.textContent = 'İki nokta arasının gerçek santimetresini yaz.'
+    const a = document.createElement('select')
+    const b = document.createElement('select')
+    a.setAttribute('aria-label', 'Birinci nokta')
+    b.setAttribute('aria-label', 'İkinci nokta')
+    olcu.points.forEach((point, index) => {
+      for (const select of [a, b]) {
+        const option = document.createElement('option')
+        option.value = point.id
+        option.textContent = `Nokta ${index + 1}`
+        select.append(option)
+      }
+    })
+    if (olcu.cift?.a) a.value = olcu.cift.a
+    if (olcu.cift?.b) b.value = olcu.cift.b
+    else if (olcu.points[1]) b.value = olcu.points[1].id
+    const distance = document.createElement('input')
+    distance.type = 'number'
+    distance.min = '0'
+    distance.step = '0.1'
+    distance.inputMode = 'decimal'
+    distance.value = olcu.cift?.cm ?? ''
+    const distanceLabel = document.createElement('label')
+    distanceLabel.textContent = 'Mesafe (cm)'
+    distanceLabel.append(distance)
+    const apply = button('Bu mesafeye ölçekle', () => {
+      const cm = Number(distance.value)
+      if (!(cm > 0) || !a.value || !b.value || a.value === b.value) return
+      hooks.onOlcuPair?.(model.id, { ...olcu, cift: { a: a.value, b: b.value, cm } })
+    })
+    box.append(pairTitle, pairNote, a, b, distanceLabel, apply)
+    if (fit && a.value && b.value && a.value !== b.value) {
+      const from = olcu.points.find((point) => point.id === a.value)
+      const to = olcu.points.find((point) => point.id === b.value)
+      if (from && to) {
+        const live = document.createElement('p')
+        live.className = 'not'
+        live.textContent = `Seçilen aralık şimdi ${pairCm(from.position, to.position, fit.s, scale).toFixed(1)} cm`
+        box.append(live)
+      }
+    }
+    const cables = document.createElement('h2')
+    cables.textContent = 'Kablo boyu'
+    box.append(cables)
+    const list = document.createElement('ul')
+    if (!state.cables.length) {
+      const empty = document.createElement('li')
+      empty.className = 'not'
+      empty.textContent = 'Kablo yok.'
+      list.append(empty)
+    }
+    for (const cable of state.cables) {
+      const cm = hooks.cableLength?.(cable)
+      const row = document.createElement('li')
+      row.className = 'not'
+      row.textContent = `${cable.name}: ${cm == null ? 'ölçü yok' : `${cm.toFixed(1)} cm`}`
+      list.append(row)
+    }
+    box.append(list)
+    return box
   }
 
   function selectedComponent(state, ui) {

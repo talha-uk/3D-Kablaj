@@ -6,6 +6,7 @@ import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
 import { routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
 import { addCable, addComponent, addModel, addPort, cableShown, emptyState, matchCable, uid } from '../src/state.js'
+import { cableLengthCm, pairCm, portWorld, scaleFromBox, scaleFromPair } from '../src/olcu.js'
 import fs from 'node:fs'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 
@@ -269,6 +270,49 @@ fs.writeFileSync(new URL('../public/test-kutu.glb', import.meta.url), glb)
 check('örnek glb yazıldı', glb.byteLength > 100)
 const parsed = await new GLTFLoader().parseAsync(glb.buffer.slice(glb.byteOffset, glb.byteOffset + glb.byteLength), '')
 check('glb sahneye çıkar', parsed.scene.children.length === 1)
+
+const body = [{ position: [0, 0, 0] }, { position: [10, 0, 0] }, { position: [0, 4, 0] }, { position: [0, 0, 8] }]
+const fitS = 1 / 11
+const bodyScale = scaleFromBox(body, { en: 10, boy: 4, derinlik: 8 }, fitS)
+check('gövde 10 cm, SMA payı ölçeğe girmez', Math.abs(bodyScale - 11) < 1e-6)
+check('ölçeklenmiş gövde 10 cm', Math.abs(pairCm([0, 0, 0], [10, 0, 0], fitS, bodyScale) - 10) < 1e-6)
+check('SMA ucu 11 cm de kalır', Math.abs(pairCm([0, 0, 0], [11, 0, 0], fitS, bodyScale) - 11) < 1e-6)
+const withStub = [...body, { position: [11, 0, 0] }]
+check('çıkıntı noktası kutuyu büyütür', Math.abs(scaleFromBox(withStub, { en: 10 }, fitS) - 10) < 1e-6)
+check('iki nokta 10 cm aynı ölçeği verir', Math.abs(scaleFromPair([0, 0, 0], [10, 0, 0], 10, fitS) - 11) < 1e-6)
+const group = new THREE.Group()
+group.position.set(1, 2, 3)
+group.rotation.y = 0.4
+group.scale.setScalar(2)
+const align = new THREE.Group()
+align.position.set(0.1, 0.2, 0.3)
+align.scale.setScalar(0.5)
+group.add(align)
+const olcuMark = new THREE.Object3D()
+olcuMark.position.set(4, 5, 6)
+align.add(olcuMark)
+group.updateWorldMatrix(true, true)
+const expected = portWorld(
+  { position: [1, 2, 3], yaw: 0.4, scale: 2 },
+  { s: 0.5, x: 0.1, y: 0.2, z: 0.3 },
+  [4, 5, 6]
+)
+check('ölçü dünya konumu', olcuMark.getWorldPosition(new THREE.Vector3()).distanceTo(new THREE.Vector3(...expected)) < 1e-5)
+const measured = {
+  version: 1,
+  models: [{
+    id: 'm',
+    olcek: 11,
+    ports: [{ id: 'pa', position: [0, 0, 0], normal: [1, 0, 0] }, { id: 'pb', position: [10, 0, 0], normal: [-1, 0, 0] }]
+  }],
+  components: [
+    { id: 'a', modelId: 'm', position: [0, 0, 0], yaw: 0, scale: 11, ports: [] },
+    { id: 'b', modelId: 'm', position: [0, 0, 0], yaw: 0, scale: 11, ports: [] }
+  ],
+  cables: [{ id: 'c', a: { componentId: 'a', portId: 'pa' }, b: { componentId: 'b', portId: 'pb' }, vias: [] }]
+}
+const length = cableLengthCm(measured, measured.cables[0], () => ({ s: fitS, x: 0, y: 0, z: 0 }))
+check('kablo santimetreye oturur', length > 9 && length < 14)
 
 function boxGlb() {
   const faces = [
