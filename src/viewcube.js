@@ -192,7 +192,7 @@ export function syncViewCube(main, cubeCam) {
   main.getWorldDirection(dir)
   up.setFromMatrixColumn(main.matrixWorld, 1)
   if (up.lengthSq() < 1e-8) up.set(0, 1, 0)
-  cubeCam.position.copy(dir).multiplyScalar(-3.6)
+  cubeCam.position.copy(dir).multiplyScalar(-4.3)
   cubeCam.up.copy(up)
   cubeCam.lookAt(0, 0, 0)
   cubeCam.updateMatrixWorld(true)
@@ -221,8 +221,16 @@ export function cullViewCube(picks, cubeCam) {
     if (mesh.userData.part !== 'head') continue
     const dir = mesh.userData.dir
     const dot = (dir[0] * cam[0] + dir[1] * cam[1] + dir[2] * cam[2]) / length
-    placeArrow(mesh, dot < 0.12 ? 1.9 : 1.05)
+    let shaft = dot < 0.12 ? 1.22 : 1.02
+    while (shaft > 0.72 && !tipInside(dir, shaft, mesh.userData.headLen, cubeCam)) shaft -= 0.04
+    placeArrow(mesh, shaft)
   }
+}
+
+function tipInside(dir, shaftLen, headLen, cubeCam) {
+  const tip = [-0.5, -0.5, -0.5].map((value, index) => value + dir[index] * (shaftLen + headLen))
+  const point = new THREE.Vector3(tip[0], tip[1], tip[2]).project(cubeCam)
+  return Math.abs(point.x) <= 0.8 && Math.abs(point.y) <= 0.8 && point.z < 1
 }
 
 export function markCube(picks, direction) {
