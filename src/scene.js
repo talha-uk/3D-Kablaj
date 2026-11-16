@@ -519,7 +519,7 @@ export class View {
       ? this.viewHalf / Math.max(this.ortho.zoom, 0.2)
       : this.perspective.position.distanceTo(this.orbit.target)
     const step = Math.max(0.35, span * 0.7) * (this.flyFast ? 2.4 : 1) * dt
-    const delta = flyDelta(camera, { forward, strafe, lift }, step)
+    const delta = flyDelta(camera, { forward, strafe, lift }, step, this.mode === 'sema')
     if (delta.lengthSq() < 1e-10) return
     if (this.mode === 'sema') {
       this.placeSchema(this.schemaFocus.x + delta.x, this.schemaFocus.z + delta.z)
@@ -1720,8 +1720,17 @@ export class View {
       -((py - box.y) / box.size) * 2 + 1
     )
     this.cubeRay.setFromCamera(ndc, this.cube.camera)
-    const hit = this.cubeRay.intersectObjects(this.cube.picks, false)[0]
-    return hit?.object.userData.dir || null
+    const hits = this.cubeRay.intersectObjects(this.cube.picks, false).filter((hit) => hit.object.visible)
+    const axis = hits.find((hit) => hit.object.userData.kind === 'axis')
+    if (axis) return axis.object.userData.dir
+    const closest = hits[0]
+    if (!closest) return null
+    const face = hits.find((hit) => {
+      if (hit.object.userData.kind !== 'face') return false
+      const local = hit.object.worldToLocal(hit.point.clone())
+      return Math.abs(local.x) <= 0.32 && Math.abs(local.y) <= 0.32
+    })
+    return (face || closest).object.userData.dir || null
   }
 
   paintCube(event) {

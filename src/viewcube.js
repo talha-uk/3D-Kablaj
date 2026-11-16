@@ -86,6 +86,15 @@ export function createViewCube() {
     orient(mesh, spec.normal)
     root.add(mesh)
     picks.push(mesh)
+    const picker = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.05, 1.05),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false })
+    )
+    picker.userData.dir = spec.normal.slice()
+    picker.userData.kind = 'face'
+    orient(picker, spec.normal)
+    root.add(picker)
+    picks.push(picker)
   }
   for (let axis = 0; axis < 3; axis += 1) {
     const u = (axis + 1) % 3

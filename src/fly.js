@@ -6,25 +6,29 @@ const PITCH_LIMIT = Math.PI / 2 - 0.02
 // Dikeyden sapma. Üst üste kabloların ekranda ayrılması için.
 export const SCHEMA_TILT = 50 * Math.PI / 180
 
-export function cameraBasis(camera) {
+export function cameraBasis(camera, planar = false) {
   const fwd = new THREE.Vector3()
   const right = new THREE.Vector3()
   camera.getWorldDirection(fwd)
   right.setFromMatrixColumn(camera.matrixWorld, 0)
-  if (Math.abs(fwd.y) > 0.92) {
+  if (planar && Math.abs(fwd.y) > 0.92) {
     fwd.setFromMatrixColumn(camera.matrixWorld, 1)
     fwd.y = 0
   }
   right.y = 0
-  if (fwd.lengthSq() < 1e-8) fwd.set(0, 0, -1)
+  if (right.lengthSq() < 1e-8) {
+    const screenUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1)
+    right.set(-screenUp.z, 0, screenUp.x)
+  }
+  if (fwd.lengthSq() < 1e-8) fwd.set(0, -1, 0)
   if (right.lengthSq() < 1e-8) right.set(1, 0, 0)
   fwd.normalize()
   right.normalize()
   return { fwd, right }
 }
 
-export function flyDelta(camera, input, distance) {
-  const { fwd, right } = cameraBasis(camera)
+export function flyDelta(camera, input, distance, planar = false) {
+  const { fwd, right } = cameraBasis(camera, planar)
   const move = new THREE.Vector3()
   move.addScaledVector(fwd, input.forward || 0)
   move.addScaledVector(right, input.strafe || 0)
