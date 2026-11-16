@@ -83,6 +83,7 @@ export function createViewCube() {
       })
     )
     mesh.userData.dir = spec.normal.slice()
+    mesh.userData.faces = [spec.normal.slice()]
     mesh.userData.kind = 'face'
     mesh.renderOrder = 1
     orient(mesh, spec.normal)
@@ -105,6 +106,11 @@ export function createViewCube() {
         pos[v] = sv * 0.56
         mesh.position.set(pos[0], pos[1], pos[2])
         mesh.userData.dir = unit(dir)
+        const faceU = [0, 0, 0]
+        const faceV = [0, 0, 0]
+        faceU[u] = su
+        faceV[v] = sv
+        mesh.userData.faces = [faceU, faceV]
         mesh.userData.kind = 'edge'
         mesh.renderOrder = 2
         root.add(mesh)
@@ -118,6 +124,7 @@ export function createViewCube() {
         const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 12), glass(0xf7f1e8, 0.92))
         mesh.position.set(x * 0.56, y * 0.56, z * 0.56)
         mesh.userData.dir = unit([x, y, z])
+        mesh.userData.faces = [[x, 0, 0], [0, y, 0], [0, 0, z]]
         mesh.userData.kind = 'corner'
         mesh.renderOrder = 3
         root.add(mesh)
@@ -176,17 +183,23 @@ export function syncViewCube(main, cubeCam) {
   cubeCam.updateMatrixWorld(true)
 }
 
-export function seenFrom(dir, camPos, kind) {
-  if (kind === 'axis') return true
+function facesCamera(normal, camPos) {
   const length = Math.hypot(camPos[0], camPos[1], camPos[2]) || 1
-  const dot = (dir[0] * camPos[0] + dir[1] * camPos[1] + dir[2] * camPos[2]) / length
-  return dot > (kind === 'face' ? 0.2 : 0.05)
+  const dot = (normal[0] * camPos[0] + normal[1] * camPos[1] + normal[2] * camPos[2]) / length
+  return dot > 0.02
+}
+
+// Kenar ve köşe, değdiği yüzlerden biri öndeyse görünür.
+export function seenFrom(dir, camPos, kind, faces) {
+  if (kind === 'axis') return true
+  const parts = faces?.length ? faces : [dir]
+  return parts.some((normal) => facesCamera(normal, camPos))
 }
 
 export function cullViewCube(picks, cubeCam) {
   const cam = [cubeCam.position.x, cubeCam.position.y, cubeCam.position.z]
   for (const mesh of picks) {
-    mesh.visible = seenFrom(mesh.userData.dir, cam, mesh.userData.kind)
+    mesh.visible = seenFrom(mesh.userData.dir, cam, mesh.userData.kind, mesh.userData.faces)
   }
 }
 

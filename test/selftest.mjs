@@ -78,9 +78,11 @@ const schemaBlocked = routeSchema(
 const throughMiddle = schemaBlocked.slice(1, -1).some((point) => point[0] > 1.02 && point[0] < 1.98 && Math.abs(point[2]) < 0.38)
 check('şema kablosu modelin dışından gider', schemaBlocked && !throughMiddle && schemaBlocked.some((point) => Math.abs(point[2]) >= 0.49))
 const frontCam = [1, 1, 1]
-check('öndeki yüz görünür', seenFrom([1, 0, 0], frontCam, 'face'))
-check('arkadaki yüz gizli', !seenFrom([-1, 0, 0], frontCam, 'face'))
-check('arkadaki kenar gizli', !seenFrom(unitDir([-1, -1, 0]), frontCam, 'edge'))
+check('öndeki yüz görünür', seenFrom([1, 0, 0], frontCam, 'face', [[1, 0, 0]]))
+check('arkadaki yüz gizli', !seenFrom([-1, 0, 0], frontCam, 'face', [[-1, 0, 0]]))
+check('arkadaki kenar gizli', !seenFrom(unitDir([-1, -1, 0]), frontCam, 'edge', [[-1, 0, 0], [0, -1, 0]]))
+check('görünen yüzün köşesi durur', seenFrom(unitDir([1, -1, -1]), frontCam, 'corner', [[1, 0, 0], [0, -1, 0], [0, 0, -1]]))
+check('arkadaki köşe gizli', !seenFrom(unitDir([-1, -1, -1]), frontCam, 'corner', [[-1, 0, 0], [0, -1, 0], [0, 0, -1]]))
 check('eksen oku görünür kalır', seenFrom([1, 0, 0], frontCam, 'axis'))
 
 const blocked = routeClear([-2, 0, 0], [-1, 0, 0], [2, 0, 0], [1, 0, 0], [{ min: [-0.4, -0.4, -0.4], max: [0.4, 0.4, 0.4] }], 0)
