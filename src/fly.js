@@ -51,20 +51,64 @@ export function aimAhead(camera, target, distance) {
   target.copy(camera.position).addScaledVector(dir, distance)
 }
 
-// tilt 0 üstten. Ekranın yukarısı dünya -Z, sağı +X.
-export function schemaPose(focusX, focusZ, tilt, height = 16) {
-  if (tilt < 1e-4) {
-    return {
-      position: [focusX, height, focusZ],
-      up: [0, 0, -1],
-      target: [focusX, 0, focusZ]
-    }
-  }
+function asDir(direction) {
+  const x = direction?.x ?? direction?.[0] ?? 0
+  const y = direction?.y ?? direction?.[1] ?? 1
+  const z = direction?.z ?? direction?.[2] ?? 0
+  const length = Math.hypot(x, y, z)
+  if (length < 1e-8) return [0, 1, 0]
+  return [x / length, y / length, z / length]
+}
+
+function cross(a, b) {
+  return [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0]
+  ]
+}
+
+// Kameranın durduğu yön. Dikey bakışta ekranın yukarısı dünya -Z.
+export function viewUp(direction) {
+  const dir = asDir(direction)
+  if (Math.abs(dir[1]) > 0.92) return [0, 0, -1]
+  return [0, 1, 0]
+}
+
+export function cameraPlacement(target, direction, distance) {
+  const dir = asDir(direction)
+  const up = viewUp(dir)
   return {
-    position: [focusX, height * Math.cos(tilt), focusZ + height * Math.sin(tilt)],
-    up: [0, 1, 0],
-    target: [focusX, 0, focusZ]
+    position: [target[0] + dir[0] * distance, target[1] + dir[1] * distance, target[2] + dir[2] * distance],
+    up,
+    target: [target[0], target[1], target[2]]
   }
+}
+
+// direction: hedeften kameraya. Üst [0,1,0]. Eğik şema [0, cos, sin].
+export function schemaPose(focusX, focusZ, direction = [0, 1, 0], height = 16) {
+  return cameraPlacement([focusX, 0, focusZ], direction, height)
+}
+
+// Küp yüzünün dokusu. Yerel +Z dışarı, yerel +Y yazının yukarısı.
+export function faceBasis(normal) {
+  const z = asDir(normal)
+  const hint = Math.abs(z[1]) > 0.9 ? [0, 0, -Math.sign(z[1]) || -1] : [0, 1, 0]
+  const x = asDir(cross(hint, z))
+  const y = asDir(cross(z, x))
+  return { x, y, z }
+}
+
+// Yüzün ortası tek eksen, kenar iki, köşe üç. point küpün içinde, yüzey 0.5.
+export function pickView(point, normal, edge = 0.18) {
+  const dir = [0, 0, 0]
+  for (let i = 0; i < 3; i += 1) {
+    const n = normal[i] || 0
+    const p = point[i] || 0
+    if (Math.abs(n) > 0.5) dir[i] = Math.sign(n)
+    else if (Math.abs(0.5 - Math.abs(p)) < edge) dir[i] = Math.sign(p) || 1
+  }
+  return asDir(dir)
 }
 
 export function groundAxes(camera) {

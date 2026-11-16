@@ -215,16 +215,9 @@ h2 { font-size: 0.85rem; margin-block-end: 0.4rem; }
   touch-action: none;
 }
 
-#acili {
-  position: absolute;
-  inset-block-start: 0.6rem;
-  inset-inline-start: 0.6rem;
-  z-index: 1;
-}
-
 #bos {
   position: absolute;
-  inset: auto 1rem 1rem 1rem;
+  inset: auto 8rem 1rem 1rem;
   pointer-events: none;
   color: var(--muted);
 }

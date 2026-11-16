@@ -28,18 +28,13 @@ const demo = params.has('demo')
 let state = emptyState()
 let past = []
 let future = []
-let uiState = { mode: 'yerlesim', tool: 'sec', cableType: 'guc', selection: null, inspectId: null, schemaTilt: true }
+let uiState = { mode: 'yerlesim', tool: 'sec', cableType: 'guc', selection: null, inspectId: null }
 let poseMark = false
 
 const ui = mount({
   onMode: (mode) => {
     pinInspect()
     applyMode(mode)
-    publish(false)
-  },
-  onSchemaTilt: () => {
-    uiState = { ...uiState, schemaTilt: !uiState.schemaTilt }
-    view.setSchemaTilt(uiState.schemaTilt)
     publish(false)
   },
   onTool: (tool) => {

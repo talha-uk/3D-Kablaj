@@ -5,7 +5,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { clone as cloneObject } from 'three/addons/utils/SkeletonUtils.js'
 import { focusFor } from './focus.js'
-import { SCHEMA_TILT, aimAhead, flyDelta, groundAxes, panFocus, schemaPose, turnLook } from './fly.js'
+import { SCHEMA_TILT, aimAhead, cameraPlacement, flyDelta, groundAxes, panFocus, pickView, schemaPose, turnLook } from './fly.js'
+import { createViewCube, markCube, syncViewCube } from './viewcube.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
 import { CABLE_RADIUS, SCHEMA_LIFT, routeClear, routeSchema, routeVia } from './route.js'
@@ -354,8 +355,11 @@ export class View {
     this.perspective.up.set(0, 1, 0)
     this.ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100)
     this.schemaFocus = { x: 0, z: 0 }
-    this.schemaTilt = true
+    this.schemaDir = new THREE.Vector3(0, Math.cos(SCHEMA_TILT), Math.sin(SCHEMA_TILT))
     this.placeSchema(0, 0)
+    this.cube = createViewCube()
+    this.cubeRay = new THREE.Raycaster()
+    this.cubePress = null
 
     this.loader = new GLTFLoader()
     this.raycaster = new THREE.Raycaster()
@@ -552,7 +556,12 @@ export class View {
     }
     if (!this.live) return
     if (this.box) this.box.update()
+    const width = this.canvas.clientWidth || 1
+    const height = this.canvas.clientHeight || 1
+    this.renderer.setScissorTest(false)
+    this.renderer.setViewport(0, 0, width, height)
     this.renderer.render(this.scene, this.activeCamera())
+    this.renderCube(width, height)
     this.live = false
   }
 
@@ -1108,15 +1117,9 @@ export class View {
     this.orbit.update()
   }
 
-  setSchemaTilt(on) {
-    this.schemaTilt = Boolean(on)
-    if (this.mode === 'sema') this.placeSchema(this.schemaFocus.x, this.schemaFocus.z)
-    this.requestRender()
-  }
-
   placeSchema(x, z) {
     this.schemaFocus = { x, z }
-    const pose = schemaPose(x, z, this.schemaTilt ? SCHEMA_TILT : 0)
+    const pose = schemaPose(x, z, this.schemaDir)
     this.ortho.up.set(pose.up[0], pose.up[1], pose.up[2])
     this.ortho.position.set(pose.position[0], pose.position[1], pose.position[2])
     this.ortho.lookAt(pose.target[0], pose.target[1], pose.target[2])
@@ -1186,6 +1189,11 @@ export class View {
 
   onDown(event) {
     if (event.button !== 0 || this.transform.dragging) return
+    const dir = this.readCube(event)
+    if (dir) {
+      this.cubePress = { x: event.clientX, y: event.clientY, dir }
+      return
+    }
     this.setPointer(event)
     if (this.gizmoHandleHit()) return
     const hit = this.firstHit()
@@ -1226,6 +1234,16 @@ export class View {
 
   onMove(event) {
     this.setPointer(event)
+    if (this.cubePress) {
+      this.paintCube(event)
+      return
+    }
+    if (!this.down && !this.transform.dragging && this.paintCube(event)) {
+      this.canvas.style.cursor = 'pointer'
+      this.setHover(null)
+      return
+    }
+    if (this.canvas.style.cursor === 'pointer') this.canvas.style.cursor = ''
     if (this.surfaceDrag && this.down) {
       this.dragPortOnSurface(event)
       return
@@ -1405,6 +1423,13 @@ export class View {
   }
 
   onUp(event) {
+    if (this.cubePress) {
+      const press = this.cubePress
+      this.cubePress = null
+      const moved = Math.hypot(event.clientX - press.x, event.clientY - press.y) > 4
+      if (!moved) this.applyView(press.dir)
+      return
+    }
     if (!this.down) return
     const moved = Math.hypot(event.clientX - this.down.x, event.clientY - this.down.y) > 4
     if (this.surfaceDrag?.started) {
@@ -1549,12 +1574,87 @@ export class View {
   }
 
   onWheel(event) {
+    if (this.readCube(event)) {
+      event.preventDefault()
+      return
+    }
     if (this.mode !== 'sema') return
     event.preventDefault()
     const factor = event.deltaY > 0 ? 0.92 : 1.08
     this.ortho.zoom = Math.min(16, Math.max(0.2, this.ortho.zoom * factor))
     this.ortho.updateProjectionMatrix()
     this.requestRender()
+  }
+
+  cubeBox(width, height) {
+    const size = Math.round(Math.min(112, Math.max(72, Math.min(width, height) * 0.2)))
+    return { x: width - size - 12, y: height - size - 12, size }
+  }
+
+  readCube(event) {
+    const width = this.canvas.clientWidth || 1
+    const height = this.canvas.clientHeight || 1
+    const rect = this.canvas.getBoundingClientRect()
+    const px = event.clientX - rect.left
+    const py = event.clientY - rect.top
+    const box = this.cubeBox(width, height)
+    if (px < box.x || py < box.y || px > box.x + box.size || py > box.y + box.size) return null
+    syncViewCube(this.activeCamera(), this.cube.camera)
+    const ndc = new THREE.Vector2(
+      ((px - box.x) / box.size) * 2 - 1,
+      -((py - box.y) / box.size) * 2 + 1
+    )
+    this.cubeRay.setFromCamera(ndc, this.cube.camera)
+    const hit = this.cubeRay.intersectObject(this.cube.pick, false)[0]
+    if (!hit?.face) return null
+    const point = this.cube.pick.worldToLocal(hit.point.clone())
+    const normal = hit.face.normal
+    return pickView([point.x, point.y, point.z], [normal.x, normal.y, normal.z])
+  }
+
+  paintCube(event) {
+    const dir = this.readCube(event)
+    const key = dir ? dir.map((value) => value.toFixed(3)).join() : ''
+    if (key === this.cubeKey) return Boolean(dir)
+    this.cubeKey = key
+    markCube(this.cube.faces, dir)
+    this.requestRender()
+    return Boolean(dir)
+  }
+
+  applyView(direction) {
+    if (this.mode === 'sema') {
+      this.schemaDir.set(direction[0], direction[1], direction[2]).normalize()
+      this.placeSchema(this.schemaFocus.x, this.schemaFocus.z)
+    } else {
+      const place = cameraPlacement(
+        [this.orbit.target.x, this.orbit.target.y, this.orbit.target.z],
+        direction,
+        Math.max(0.8, this.perspective.position.distanceTo(this.orbit.target))
+      )
+      this.perspective.up.set(place.up[0], place.up[1], place.up[2])
+      this.perspective.position.set(place.position[0], place.position[1], place.position[2])
+      this.perspective.lookAt(place.target[0], place.target[1], place.target[2])
+      this.perspective.updateMatrixWorld(true)
+      this.orbit.update()
+    }
+    this.requestRender()
+  }
+
+  renderCube(width, height) {
+    const box = this.cubeBox(width, height)
+    syncViewCube(this.activeCamera(), this.cube.camera)
+    const glY = height - box.y - box.size
+    this.renderer.setScissorTest(true)
+    this.renderer.setViewport(box.x, glY, box.size, box.size)
+    this.renderer.setScissor(box.x, glY, box.size, box.size)
+    const auto = this.renderer.autoClear
+    this.renderer.autoClear = false
+    this.renderer.clear(true, true, false)
+    this.renderer.render(this.cube.scene, this.cube.camera)
+    this.renderer.autoClear = auto
+    this.renderer.setScissorTest(false)
+    this.renderer.setViewport(0, 0, width, height)
   }
 
   portUnderPointer() {
