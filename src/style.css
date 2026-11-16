@@ -215,6 +215,22 @@ h2 { font-size: 0.85rem; margin-block-end: 0.4rem; }
   touch-action: none;
 }
 
+#bakis {
+  position: absolute;
+  inset: auto 0.75rem 0.3rem auto;
+  z-index: 1;
+  display: flex;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+#bakis .k { color: #ff2a2a; }
+#bakis .y { color: #2dcc3a; }
+#bakis .m { color: #2f6dff; }
+
 #bos {
   position: absolute;
   inset: auto 11rem 1rem 1rem;

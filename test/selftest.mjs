@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { SCHEMA_TILT, aimAhead, cameraBasis, cameraPlacement, faceBasis, flyDelta, groundAxes, panFocus, pickView, schemaPose, turnLook } from '../src/fly.js'
+import { SCHEMA_TILT, aimAhead, axisAngles, cameraBasis, cameraPlacement, faceBasis, flyDelta, groundAxes, panFocus, pickView, schemaPose, turnLook } from '../src/fly.js'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { headingFromQuaternion, portOrientation, portRoll } from '../src/yaw.js'
 import { softSnap, softSnapAngle } from '../src/snap.js'
@@ -138,6 +138,10 @@ zenith.lookAt(0, 0, 0)
 zenith.updateMatrixWorld(true)
 const rise = flyDelta(zenith, { forward: 1 }, 1)
 check('tam alttan W yükselir', rise.y > 0.9 && Math.abs(rise.z) < 0.1)
+const frontAngles = axisAngles([0, 0, 1])
+check('önden mavi 0, diğerleri 90', frontAngles[0] === 90 && frontAngles[1] === 90 && frontAngles[2] === 0)
+const edgeAngles = axisAngles([1, 0, 1])
+check('ön-sağ kenarı 45', edgeAngles[0] === 45 && edgeAngles[1] === 90 && edgeAngles[2] === 45)
 check('şemada D ekranın sağı', plan.right.x > 0.9)
 
 const still = new THREE.PerspectiveCamera(45, 1, 0.1, 100)

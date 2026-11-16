@@ -79,6 +79,14 @@ export function viewUp(direction) {
   return [0, 1, 0]
 }
 
+export function axisAngles(direction) {
+  const dir = asDir(direction)
+  return [[1, 0, 0], [0, 1, 0], [0, 0, 1]].map((axis) => {
+    const aligned = Math.max(-1, Math.min(1, dir[0] * axis[0] + dir[1] * axis[1] + dir[2] * axis[2]))
+    return Math.round((Math.acos(aligned) * 180) / Math.PI)
+  })
+}
+
 export function cameraPlacement(target, direction, distance) {
   const dir = asDir(direction)
   const up = viewUp(dir)

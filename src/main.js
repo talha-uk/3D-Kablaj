@@ -136,6 +136,7 @@ const view = new View(document.getElementById('sahne'), {
     return { plane: cift.plane, y: cift.y }
   },
   status: (text) => ui.status(text),
+  onViewAngle: (angles) => ui.setAngles(angles),
   onSelect: (selection) => select(selection),
   onPort: async (port) => {
     const count = state.components.find((item) => item.id === port.componentId)?.ports.length || 0

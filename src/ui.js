@@ -545,8 +545,15 @@ export function mount(hooks) {
     return null
   }
 
+  const bakis = [...document.querySelectorAll('#bakis span')]
+
   return {
     render,
+    setAngles(angles) {
+      angles.forEach((angle, index) => {
+        if (bakis[index]) bakis[index].textContent = `${angle}°`
+      })
+    },
     status(text) {
       durum.textContent = text
     },

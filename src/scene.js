@@ -5,7 +5,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { clone as cloneObject } from 'three/addons/utils/SkeletonUtils.js'
 import { focusFor } from './focus.js'
-import { SCHEMA_TILT, aimAhead, cameraPlacement, flyDelta, groundAxes, panFocus, schemaPose, turnLook } from './fly.js'
+import { SCHEMA_TILT, aimAhead, axisAngles, cameraPlacement, flyDelta, groundAxes, panFocus, schemaPose, turnLook } from './fly.js'
 import { snapReference } from './olcu.js'
 import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
@@ -1702,7 +1702,7 @@ export class View {
 
   cubeBox(width, height) {
     const size = Math.round(Math.min(156, Math.max(104, Math.min(width, height) * 0.28)))
-    return { x: width - size - 12, y: height - size - 12, size }
+    return { x: width - size - 12, y: height - size - 34, size }
   }
 
   readCube(event) {
@@ -1777,6 +1777,9 @@ export class View {
     this.renderer.autoClear = auto
     this.renderer.setScissorTest(false)
     this.renderer.setViewport(0, 0, width, height)
+    const look = new THREE.Vector3()
+    this.activeCamera().getWorldDirection(look)
+    this.hooks.onViewAngle?.(axisAngles([-look.x, -look.y, -look.z]))
   }
 
   portUnderPointer() {
