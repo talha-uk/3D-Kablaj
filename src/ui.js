@@ -2,7 +2,7 @@ import { componentName, componentPorts, matchCable, portName, portTypeOf, typeNa
 import { bindTabs, bindToolbar } from './keys.js'
 
 const HINT = {
-  sec: 'Parçaya veya kabloya tıkla. Boş alanda sürükleyince kamera döner.',
+  sec: 'Parçaya veya kabloya tıkla. Boş alanda sürükleyince kamera yerinde kalır, yalnız bakış yönü değişir.',
   tasi: 'Parçayı oklarla taşı. Herhangi bir portu tutup modelin yüzeyinde kaydır.',
   dondur: 'Modeli yeşil halkadan çevir. Port seçiliyken portu tutup çevirirsin, halka portu gömmez.',
   port: 'İncelemede yüzeye tıkla. RF SMA, RF N, USB 2.0, USB 3.0, USB Type-C, Ethernet veya Güç.',
@@ -46,6 +46,7 @@ export function mount(hooks) {
   const jsonDosya = document.getElementById('json-dosya')
   const kutuphane = document.getElementById('kutuphane')
   const gorunum = document.getElementById('gorunum')
+  const acili = document.getElementById('acili')
 
   document.getElementById('yukle').addEventListener('click', () => dosya.click())
   dosya.addEventListener('change', () => {
@@ -61,6 +62,7 @@ export function mount(hooks) {
   document.getElementById('indir').addEventListener('click', () => hooks.onDownload?.())
   document.getElementById('yeni').addEventListener('click', () => hooks.onNew?.())
   projeAd.addEventListener('change', () => hooks.onRenameProject?.(projeAd.value.trim() || 'Adsız düzenek'))
+  acili.addEventListener('click', () => hooks.onSchemaTilt?.())
 
   document.querySelector('[aria-label="Araç"]').addEventListener('click', (event) => {
     const target = event.target.closest('[data-tool]')
@@ -98,7 +100,13 @@ export function mount(hooks) {
     for (const item of document.querySelectorAll('[data-filter]')) {
       item.setAttribute('aria-pressed', hidden.has(item.dataset.filter) ? 'false' : 'true')
     }
-    ipucu.textContent = HINT[ui.tool] || HINT.sec
+    acili.hidden = ui.mode !== 'sema'
+    acili.setAttribute('aria-pressed', ui.schemaTilt ? 'true' : 'false')
+    ipucu.textContent = ui.mode === 'sema'
+      ? (ui.schemaTilt
+        ? 'Açılı bakış açık. Üst üste binen kablolar ayrılır. Boş alanda sürükleyince şema kayar.'
+        : 'Üstten bakış. Açılı bakış üst üste kabloları ayırır. Boş alanda sürükleyince şema kayar.')
+      : (HINT[ui.tool] || HINT.sec)
     tabs.setMode(ui.mode)
 
     const showEmpty = ui.mode === 'incele' ? !ui.inspectId : state.components.length === 0

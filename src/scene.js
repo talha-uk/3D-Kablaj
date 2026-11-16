@@ -5,7 +5,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { clone as cloneObject } from 'three/addons/utils/SkeletonUtils.js'
 import { focusFor } from './focus.js'
-import { flyDelta } from './fly.js'
+import { SCHEMA_TILT, aimAhead, flyDelta, groundAxes, panFocus, schemaPose, turnLook } from './fly.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
 import { CABLE_RADIUS, SCHEMA_LIFT, routeClear, routeSchema, routeVia } from './route.js'
@@ -353,10 +353,9 @@ export class View {
     this.perspective.position.set(3, 2.4, 4)
     this.perspective.up.set(0, 1, 0)
     this.ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100)
-    this.ortho.position.set(0, 12, 0)
-    // Üstten bakış. Ekranın yukarısı dünya -Z olur. Orbit bu kamerayı döndürmez.
-    this.ortho.up.set(0, 0, -1)
-    this.ortho.lookAt(0, 0, 0)
+    this.schemaFocus = { x: 0, z: 0 }
+    this.schemaTilt = true
+    this.placeSchema(0, 0)
 
     this.loader = new GLTFLoader()
     this.raycaster = new THREE.Raycaster()
@@ -394,6 +393,7 @@ export class View {
 
     this.orbit = new OrbitControls(this.perspective, canvas)
     this.orbit.enableDamping = false
+    this.orbit.enableRotate = false
     this.orbit.target.set(0, 0.4, 0)
     this.orbit.addEventListener('change', () => this.requestRender())
 
@@ -517,10 +517,7 @@ export class View {
     const delta = flyDelta(camera, { forward, strafe, lift }, step)
     if (delta.lengthSq() < 1e-10) return
     if (this.mode === 'sema') {
-      this.ortho.position.add(delta)
-      this.ortho.up.set(0, 0, -1)
-      this.ortho.lookAt(this.ortho.position.x, 0, this.ortho.position.z)
-      this.ortho.updateMatrixWorld(true)
+      this.placeSchema(this.schemaFocus.x + delta.x, this.schemaFocus.z + delta.z)
     } else {
       this.perspective.position.add(delta)
       this.orbit.target.add(delta)
@@ -1111,16 +1108,28 @@ export class View {
     this.orbit.update()
   }
 
+  setSchemaTilt(on) {
+    this.schemaTilt = Boolean(on)
+    if (this.mode === 'sema') this.placeSchema(this.schemaFocus.x, this.schemaFocus.z)
+    this.requestRender()
+  }
+
+  placeSchema(x, z) {
+    this.schemaFocus = { x, z }
+    const pose = schemaPose(x, z, this.schemaTilt ? SCHEMA_TILT : 0)
+    this.ortho.up.set(pose.up[0], pose.up[1], pose.up[2])
+    this.ortho.position.set(pose.position[0], pose.position[1], pose.position[2])
+    this.ortho.lookAt(pose.target[0], pose.target[1], pose.target[2])
+    this.ortho.updateMatrixWorld(true)
+  }
+
   frameSchema() {
     const box = new THREE.Box3().setFromObject(this.pickRoot)
     const center = box.isEmpty() ? new THREE.Vector3() : box.getCenter(new THREE.Vector3())
     const size = box.isEmpty() ? new THREE.Vector3(4, 1, 4) : box.getSize(new THREE.Vector3())
     this.viewHalf = Math.max(size.x, size.z, 2) * 0.7
     this.ortho.zoom = 1
-    this.ortho.up.set(0, 0, -1)
-    this.ortho.position.set(center.x, 16, center.z)
-    this.ortho.lookAt(center.x, 0, center.z)
-    this.ortho.updateMatrixWorld(true)
+    this.placeSchema(center.x, center.z)
     this.resize()
   }
 
@@ -1237,9 +1246,19 @@ export class View {
       this.dragPan(event)
       return
     }
+    if (this.lookDrag) {
+      this.dragLook(event)
+      return
+    }
     if (this.down && this.mode === 'sema' && !this.down.hit && !this.transform.dragging) {
       if (Math.hypot(event.clientX - this.down.x, event.clientY - this.down.y) > 4) {
-        this.pan = { x: event.clientX, y: event.clientY, px: this.ortho.position.x, pz: this.ortho.position.z }
+        this.pan = { x: event.clientX, y: event.clientY, fx: this.schemaFocus.x, fz: this.schemaFocus.z }
+      }
+    }
+    if (this.down && this.mode !== 'sema' && !this.surfaceDrag && !this.yawDrag && !this.bendDrag && !this.holdingGizmo && !this.transform.dragging) {
+      if (Math.hypot(event.clientX - this.down.x, event.clientY - this.down.y) > 4) {
+        this.lookDrag = { x: event.clientX, y: event.clientY }
+        this.orbit.enabled = false
       }
     }
     if (this.down || this.transform.dragging) return
@@ -1253,17 +1272,28 @@ export class View {
     const height = this.canvas.clientHeight || 1
     const worldPerX = (this.ortho.right - this.ortho.left) / this.ortho.zoom / width
     const worldPerY = (this.ortho.top - this.ortho.bottom) / this.ortho.zoom / height
-    this.ortho.updateMatrixWorld(true)
-    const right = new THREE.Vector3().setFromMatrixColumn(this.ortho.matrixWorld, 0)
-    const up = new THREE.Vector3().setFromMatrixColumn(this.ortho.matrixWorld, 1)
+    this.placeSchema(this.pan.fx, this.pan.fz)
+    const { right, up } = groundAxes(this.ortho)
     const dx = event.clientX - this.pan.x
     const dy = event.clientY - this.pan.y
-    this.ortho.up.set(0, 0, -1)
-    this.ortho.position.set(this.pan.px, 16, this.pan.pz)
-    this.ortho.position.addScaledVector(right, -dx * worldPerX)
-    this.ortho.position.addScaledVector(up, dy * worldPerY)
-    this.ortho.lookAt(this.ortho.position.x, 0, this.ortho.position.z)
-    this.ortho.updateMatrixWorld(true)
+    const next = panFocus({ x: this.pan.fx, z: this.pan.fz }, right, up, dx, dy, worldPerX, worldPerY)
+    this.placeSchema(next.x, next.z)
+    this.requestRender()
+  }
+
+  dragLook(event) {
+    const dx = event.clientX - this.lookDrag.x
+    const dy = event.clientY - this.lookDrag.y
+    this.lookDrag.x = event.clientX
+    this.lookDrag.y = event.clientY
+    if (dx === 0 && dy === 0) return
+    const camera = this.perspective
+    const dist = Math.max(0.5, camera.position.distanceTo(this.orbit.target))
+    const height = Math.max(this.canvas.clientHeight, 1)
+    const step = (Math.PI * 2) / height
+    turnLook(camera, dx * step, dy * step)
+    aimAhead(camera, this.orbit.target, dist)
+    this.orbit.update()
     this.requestRender()
   }
 
@@ -1399,6 +1429,14 @@ export class View {
     if (this.bendDrag) {
       if (this.bendDrag.moved) this.hooks.onBend?.(this.bendDrag.id, this.bendDrag.vias, this.mode === 'sema')
       this.bendDrag = null
+      if (this.mode !== 'sema') this.orbit.enabled = true
+      this.down = null
+      this.pan = null
+      this.lookDrag = null
+      return
+    }
+    if (this.lookDrag) {
+      this.lookDrag = null
       if (this.mode !== 'sema') this.orbit.enabled = true
       this.down = null
       this.pan = null

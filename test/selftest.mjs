@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { cameraBasis, flyDelta } from '../src/fly.js'
+import { SCHEMA_TILT, aimAhead, cameraBasis, flyDelta, groundAxes, panFocus, schemaPose, turnLook } from '../src/fly.js'
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { headingFromQuaternion, portOrientation, portRoll } from '../src/yaw.js'
 import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
@@ -102,6 +103,91 @@ check('E dümdüz yukarı gider', risen.y > 0.9 && Math.abs(risen.x) < 0.1 && Ma
 const plan = cameraBasis(camera)
 check('şemada W ekranın yukarısı', plan.fwd.z < -0.9)
 check('şemada D ekranın sağı', plan.right.x > 0.9)
+
+const still = new THREE.PerspectiveCamera(45, 1, 0.1, 100)
+still.position.set(3, 2.4, 4)
+still.lookAt(0, 0.4, 0)
+still.updateMatrixWorld(true)
+const stay = still.position.clone()
+const beforeDir = new THREE.Vector3()
+still.getWorldDirection(beforeDir)
+turnLook(still, 0.35, 0)
+const rightDir = new THREE.Vector3()
+still.getWorldDirection(rightDir)
+check('sağa bakınca konum durur', still.position.distanceTo(stay) < 1e-8)
+check('sağa bakınca yön +X kazanır', rightDir.x > beforeDir.x + 0.1)
+const level = new THREE.PerspectiveCamera(45, 1, 0.1, 100)
+level.position.set(0, 1, 5)
+level.lookAt(0, 1, 0)
+level.updateMatrixWorld(true)
+turnLook(level, 0, -0.3)
+const upDir = new THREE.Vector3()
+level.getWorldDirection(upDir)
+check('yukarı bakınca yön yükselir', upDir.y > 0.2)
+check('yukarı bakınca konum durur', level.position.distanceTo(new THREE.Vector3(0, 1, 5)) < 1e-8)
+
+function fakeDom() {
+  const doc = { addEventListener() {}, removeEventListener() {}, elementFromPoint() { return null } }
+  return {
+    style: {},
+    ownerDocument: doc,
+    clientHeight: 800,
+    clientWidth: 800,
+    addEventListener() {},
+    removeEventListener() {},
+    getBoundingClientRect() { return { left: 0, top: 0, width: 800, height: 800, right: 800, bottom: 800 } }
+  }
+}
+const rig = new THREE.PerspectiveCamera(45, 1, 0.02, 200)
+rig.position.set(3, 2.4, 4)
+rig.up.set(0, 1, 0)
+const controls = new OrbitControls(rig, fakeDom())
+controls.enableDamping = false
+controls.enableRotate = false
+controls.target.set(0, 0.4, 0)
+controls.update()
+const rigPos = rig.position.clone()
+const rigDir = new THREE.Vector3()
+rig.getWorldDirection(rigDir)
+const dist = rig.position.distanceTo(controls.target)
+turnLook(rig, 0.4, 0.15)
+aimAhead(rig, controls.target, dist)
+controls.update()
+const afterDir = new THREE.Vector3()
+rig.getWorldDirection(afterDir)
+check('orbit güncellemesi konumu oynatmaz', rig.position.distanceTo(rigPos) < 1e-4)
+check('orbit güncellemesi bakışı tutar', afterDir.dot(rigDir) < 0.98 && afterDir.y < rigDir.y)
+
+function schemaCamera(tilt) {
+  const cam = new THREE.OrthographicCamera(-2, 2, 2, -2, 0.01, 100)
+  const pose = schemaPose(0, 0, tilt)
+  cam.up.set(pose.up[0], pose.up[1], pose.up[2])
+  cam.position.set(pose.position[0], pose.position[1], pose.position[2])
+  cam.lookAt(pose.target[0], pose.target[1], pose.target[2])
+  cam.updateProjectionMatrix()
+  cam.updateMatrixWorld(true)
+  return cam
+}
+const flatCam = schemaCamera(0)
+const flatRight = new THREE.Vector3().setFromMatrixColumn(flatCam.matrixWorld, 0)
+const flatUp = new THREE.Vector3().setFromMatrixColumn(flatCam.matrixWorld, 1)
+check('üstten şemada sağ +X', flatRight.x > 0.9)
+check('üstten şemada yukarı -Z', flatUp.z < -0.9)
+const angled = schemaCamera(SCHEMA_TILT)
+const angRight = new THREE.Vector3().setFromMatrixColumn(angled.matrixWorld, 0)
+const angUp = new THREE.Vector3().setFromMatrixColumn(angled.matrixWorld, 1)
+check('açılı şemada sağ +X', angRight.x > 0.9 && Math.abs(angRight.y) < 0.1)
+check('açılı şemada yukarı -Z tarafı', angUp.z < -0.2 && angUp.y > 0.2)
+const low = new THREE.Vector3(0, 0.008, 0).project(angled)
+const high = new THREE.Vector3(0, 0.044, 0).project(angled)
+const lowTop = new THREE.Vector3(0, 0.008, 0).project(flatCam)
+const highTop = new THREE.Vector3(0, 0.044, 0).project(flatCam)
+const split = Math.hypot(high.x - low.x, high.y - low.y)
+const stacked = Math.hypot(highTop.x - lowTop.x, highTop.y - lowTop.y)
+check('açılı bakış üst üste kabloları ayırır', split > stacked + 0.004 && split > 0.008)
+const axes = groundAxes(angled)
+const slid = panFocus({ x: 0, z: 0 }, axes.right, axes.up, 10, 0, 0.1, 0.1)
+check('açılı şemada sağa sürükleyince odak sola kayar', slid.x < -0.5 && Math.abs(slid.z) < 0.2)
 for (const angle of [0, 0.4, -1.2, 2.7, -3]) {
   const turned = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, angle, 0))
   const back = headingFromQuaternion(turned)
