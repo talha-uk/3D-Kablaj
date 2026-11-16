@@ -1,4 +1,4 @@
-import { pairCm, axisSpans } from './olcu.js'
+import { axisSpans, decimalText, pairCm } from './olcu.js'
 import { componentName, componentPorts, matchCable, measureOf, portName, portTypeOf, typeName } from './state.js'
 import { bindTabs, bindToolbar } from './keys.js'
 
@@ -105,9 +105,13 @@ export function mount(hooks) {
         visible.forEach((item, index) => { item.tabIndex = index === 0 ? 0 : -1 })
       }
     }
-    ipucu.textContent = ui.mode === 'sema'
-      ? 'Sağ alttaki küp bakışı gösterir. Yüz, kenar veya köşe kamerayı o açıya alır. Boş alanda sürükleyince şema kayar.'
-      : (HINT[ui.tool] || HINT.sec)
+    ipucu.textContent = ui.olcuHedef === 'a'
+      ? 'Birinci noktayı model yüzeyine tıkla.'
+      : ui.olcuHedef === 'b'
+        ? 'İkinci noktayı model yüzeyine tıkla.'
+        : ui.mode === 'sema'
+          ? 'Sağ alttaki küp bakışı gösterir. Yüz, kenar veya köşe kamerayı o açıya alır. Boş alanda sürükleyince şema kayar.'
+          : (HINT[ui.tool] || HINT.sec)
     tabs.setMode(ui.mode)
 
     const showEmpty = ui.mode === 'incele' ? !ui.inspectId : state.components.length === 0
@@ -357,27 +361,51 @@ export function mount(hooks) {
       empty.textContent = 'Yüzeye tıklayıp tür seç.'
       ports.append(empty)
     }
-    secili.append(head, ports, measurePanel(state, model))
+    secili.append(head, ports, measurePanel(state, ui, model))
+  }
+
+  function bindDecimal(input) {
+    input.type = 'text'
+    input.inputMode = 'decimal'
+    input.autocomplete = 'off'
+    input.spellcheck = false
+    input.addEventListener('beforeinput', (event) => {
+      if (!event.data) return
+      if (!/^[0-9.,]$/.test(event.data)) {
+        event.preventDefault()
+        return
+      }
+      const start = input.selectionStart ?? input.value.length
+      const end = input.selectionEnd ?? input.value.length
+      const next = decimalText(input.value.slice(0, start) + event.data + input.value.slice(end))
+      const current = decimalText(input.value)
+      if ((next.match(/\./g) || []).length > 1 || next === current && /[.,]/.test(event.data)) event.preventDefault()
+    })
+    input.addEventListener('input', () => {
+      const next = decimalText(input.value)
+      if (input.value !== next) input.value = next
+    })
+  }
+
+  function readDecimal(value) {
+    const text = decimalText(value)
+    if (!text || text === '.') return null
+    const next = Number(text)
+    return Number.isFinite(next) && next > 0 ? next : null
   }
 
   function cmInput(label, value, onValue) {
     const wrap = document.createElement('label')
     wrap.textContent = label
     const input = document.createElement('input')
-    input.type = 'number'
-    input.min = '0'
-    input.step = '0.1'
-    input.inputMode = 'decimal'
+    bindDecimal(input)
     input.value = value ?? ''
-    input.addEventListener('change', () => {
-      const next = Number(input.value)
-      onValue(Number.isFinite(next) && next > 0 ? next : null)
-    })
+    input.addEventListener('change', () => onValue(readDecimal(input.value)))
     wrap.append(input)
     return wrap
   }
 
-  function measurePanel(state, model) {
+  function measurePanel(state, ui, model) {
     const olcu = measureOf(model)
     const fit = hooks.fitOf?.(model.id)
     const scale = model.olcek || 1
@@ -426,46 +454,50 @@ export function mount(hooks) {
     pairTitle.textContent = 'İki nokta'
     const pairNote = document.createElement('p')
     pairNote.className = 'not'
-    pairNote.textContent = 'İki nokta arasının gerçek santimetresini yaz.'
-    const a = document.createElement('select')
-    const b = document.createElement('select')
-    a.setAttribute('aria-label', 'Birinci nokta')
-    b.setAttribute('aria-label', 'İkinci nokta')
-    olcu.points.forEach((point, index) => {
-      for (const select of [a, b]) {
-        const option = document.createElement('option')
-        option.value = point.id
-        option.textContent = `Nokta ${index + 1}`
-        select.append(option)
-      }
+    pairNote.textContent = 'Birinci ve ikinci noktayı model yüzeyine tıkla. Araya ince çizgi çizilir.'
+    const cift = {
+      a: Array.isArray(olcu.cift?.a) ? olcu.cift.a : null,
+      b: Array.isArray(olcu.cift?.b) ? olcu.cift.b : null,
+      cm: olcu.cift?.cm ?? null,
+      color: olcu.cift?.color || '#2f8f4e'
+    }
+    const pick = (hedef, label) => {
+      const item = button(label, () => hooks.onOlcuHedef?.(hedef))
+      item.setAttribute('aria-pressed', ui.olcuHedef === hedef ? 'true' : 'false')
+      return item
+    }
+    const row = document.createElement('div')
+    row.className = 'eylem'
+    row.append(
+      pick('a', cift.a ? 'Birinci nokta seçildi' : 'Birinci nokta'),
+      pick('b', cift.b ? 'İkinci nokta seçildi' : 'İkinci nokta')
+    )
+    const colorLabel = document.createElement('label')
+    colorLabel.textContent = 'Çizgi rengi'
+    const color = document.createElement('input')
+    color.type = 'color'
+    color.value = cift.color
+    color.addEventListener('change', () => {
+      hooks.onOlcuPair?.(model.id, { ...olcu, cift: { ...cift, color: color.value } })
     })
-    if (olcu.cift?.a) a.value = olcu.cift.a
-    if (olcu.cift?.b) b.value = olcu.cift.b
-    else if (olcu.points[1]) b.value = olcu.points[1].id
-    const distance = document.createElement('input')
-    distance.type = 'number'
-    distance.min = '0'
-    distance.step = '0.1'
-    distance.inputMode = 'decimal'
-    distance.value = olcu.cift?.cm ?? ''
-    const distanceLabel = document.createElement('label')
-    distanceLabel.textContent = 'Mesafe (cm)'
-    distanceLabel.append(distance)
-    const apply = button('Bu mesafeye ölçekle', () => {
-      const cm = Number(distance.value)
-      if (!(cm > 0) || !a.value || !b.value || a.value === b.value) return
-      hooks.onOlcuPair?.(model.id, { ...olcu, cift: { a: a.value, b: b.value, cm } })
-    })
-    box.append(pairTitle, pairNote, a, b, distanceLabel, apply)
-    if (fit && a.value && b.value && a.value !== b.value) {
-      const from = olcu.points.find((point) => point.id === a.value)
-      const to = olcu.points.find((point) => point.id === b.value)
-      if (from && to) {
-        const live = document.createElement('p')
-        live.className = 'not'
-        live.textContent = `Seçilen aralık şimdi ${pairCm(from.position, to.position, fit.s, scale).toFixed(1)} cm`
-        box.append(live)
-      }
+    colorLabel.append(color)
+    box.append(
+      pairTitle,
+      pairNote,
+      row,
+      colorLabel,
+      cmInput('Mesafe (cm)', cift.cm, (cm) => {
+        hooks.onOlcuPair?.(model.id, { ...olcu, cift: { ...cift, cm } })
+      })
+    )
+    if (fit && cift.a && cift.b) {
+      const live = document.createElement('p')
+      live.className = 'not'
+      const now = pairCm(cift.a, cift.b, fit.s, scale)
+      live.textContent = cift.cm
+        ? `Referans ${cift.cm} cm. Aralık şimdi ${now.toFixed(1)} cm.`
+        : `Aralık şimdi ${now.toFixed(1)} cm. Altına santimetreyi yaz.`
+      box.append(live)
     }
     const cables = document.createElement('h2')
     cables.textContent = 'Kablo boyu'

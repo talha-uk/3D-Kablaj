@@ -1,5 +1,12 @@
 import { routePlacement, routeVia } from './route.js'
 
+export function decimalText(value) {
+  const cleaned = String(value ?? '').replace(',', '.').replace(/[^0-9.]/g, '')
+  const parts = cleaned.split('.')
+  if (parts.length <= 1) return parts[0]
+  return `${parts[0]}.${parts.slice(1).join('')}`
+}
+
 export function axisSpans(points) {
   const span = { x: 0, y: 0, z: 0 }
   if (!points?.length) return span

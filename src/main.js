@@ -31,7 +31,7 @@ const demo = params.has('demo')
 let state = emptyState()
 let past = []
 let future = []
-let uiState = { mode: 'yerlesim', tool: 'sec', cableType: 'guc', selection: null, inspectId: null }
+let uiState = { mode: 'yerlesim', tool: 'sec', cableType: 'guc', selection: null, inspectId: null, olcuHedef: null }
 let poseMark = false
 
 const ui = mount({
@@ -102,6 +102,11 @@ const ui = mount({
   onDownload: () => downloadProject(state),
   onOlcu: (modelId, olcu) => applyMeasure(modelId, olcu, 'kutu'),
   onOlcuPair: (modelId, olcu) => applyMeasure(modelId, olcu, 'cift'),
+  onOlcuHedef: (hedef) => {
+    uiState = { ...uiState, olcuHedef: uiState.olcuHedef === hedef ? null : hedef, mode: 'incele' }
+    view.setMode('incele')
+    publish(false)
+  },
   fitOf: (modelId) => view.fitOf(modelId),
   cableLength: (cable) => cableLengthCm(state, cable, (id) => view.fitOf(id)),
   onOpen: async (file) => {
@@ -119,6 +124,7 @@ const ui = mount({
 const view = new View(document.getElementById('sahne'), {
   modelBuffer,
   inspectModelId: () => uiState.inspectId || inspectFallback(),
+  olcuHedef: () => uiState.olcuHedef,
   status: (text) => ui.status(text),
   onSelect: (selection) => select(selection),
   onPort: async (port) => {
@@ -152,6 +158,19 @@ const view = new View(document.getElementById('sahne'), {
     if (!modelId) return
     const model = state.models.find((item) => item.id === modelId)
     const olcu = measureOf(model)
+    if (point.hedef === 'a' || point.hedef === 'b') {
+      const cift = {
+        a: Array.isArray(olcu.cift?.a) ? olcu.cift.a : null,
+        b: Array.isArray(olcu.cift?.b) ? olcu.cift.b : null,
+        cm: olcu.cift?.cm ?? null,
+        color: olcu.cift?.color || '#2f8f4e'
+      }
+      cift[point.hedef] = point.position
+      olcu.cift = cift
+      uiState = { ...uiState, olcuHedef: point.hedef === 'a' ? 'b' : null }
+      applyMeasure(modelId, olcu, 'cift')
+      return
+    }
     olcu.points = [...olcu.points, { id: uid(), position: point.position }]
     applyMeasure(modelId, olcu, 'kutu')
   },
@@ -296,10 +315,8 @@ function applyMeasure(modelId, olcu, source) {
   const fit = view.fitOf(modelId)
   const model = state.models.find((item) => item.id === modelId)
   let olcek = null
-  if (source === 'cift' && olcu.cift) {
-    const a = olcu.points.find((point) => point.id === olcu.cift.a)
-    const b = olcu.points.find((point) => point.id === olcu.cift.b)
-    if (a && b) olcek = scaleFromPair(a.position, b.position, olcu.cift.cm, fit?.s)
+  if (source === 'cift' && Array.isArray(olcu.cift?.a) && Array.isArray(olcu.cift?.b)) {
+    olcek = scaleFromPair(olcu.cift.a, olcu.cift.b, olcu.cift.cm, fit?.s)
   } else {
     olcek = scaleFromBox(olcu.points, olcu, fit?.s)
   }

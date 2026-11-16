@@ -681,7 +681,7 @@ export class View {
     this.pivots.clear()
     for (const component of this.state.components) {
       const record = this.state.models.find((item) => item.id === component.modelId)
-      const signature = `${component.modelId}:${JSON.stringify(record?.ports || [])}:${JSON.stringify(record?.olcu?.points || [])}:${JSON.stringify(component.ports)}`
+      const signature = `${component.modelId}:${JSON.stringify(record?.ports || [])}:${JSON.stringify(record?.olcu?.points || [])}:${JSON.stringify(record?.olcu?.cift || null)}:${JSON.stringify(component.ports)}`
       let group = this.groups.get(component.id)
       if (!group || group.userData.signature !== signature) {
         if (group) {
@@ -722,6 +722,7 @@ export class View {
     const ports = [...(record?.ports || []), ...(component.ports || [])]
     for (const port of ports) align.add(this.makePort(component, port, fit.s))
     this.addMeasureMarks(align, record?.olcu?.points || [], fit.s)
+    this.addMeasureLine(align, record?.olcu?.cift)
     const group = new THREE.Group()
     group.name = component.id
     group.userData.componentId = component.id
@@ -783,7 +784,8 @@ export class View {
     const record = this.state?.models.find((item) => item.id === modelId)
     const ports = record?.ports || []
     const marks = record?.olcu?.points || []
-    const signature = `${modelId}:${JSON.stringify(ports)}:${JSON.stringify(marks)}`
+    const cift = record?.olcu?.cift || null
+    const signature = `${modelId}:${JSON.stringify(ports)}:${JSON.stringify(marks)}:${JSON.stringify(cift)}`
     if (!model) {
       if (this.inspectRoot.userData.signature !== '') {
         this.clearGroup(this.inspectRoot)
@@ -814,6 +816,7 @@ export class View {
     align.add(visual)
     for (const port of ports) align.add(this.makePort({ id: 'incele' }, port, fit.s))
     this.addMeasureMarks(align, marks, fit.s)
+    this.addMeasureLine(align, cift)
     this.inspectRoot.add(align)
     this.indexPivots(this.inspectRoot)
     if (!keepCamera) this.frameObject(this.inspectRoot)
@@ -1490,6 +1493,11 @@ export class View {
 
   click(hit) {
     if (this.mode === 'incele' && hit?.kind === 'submesh') {
+      const hedef = this.hooks.olcuHedef?.()
+      if (hedef === 'a' || hedef === 'b') {
+        this.createMeasurePoint(hit, hedef)
+        return
+      }
       if (this.tool === 'port') this.createModelPort(hit)
       if (this.tool === 'olcu') this.createMeasurePoint(hit)
       return
@@ -1543,13 +1551,28 @@ export class View {
     }
   }
 
-  createMeasurePoint(hit) {
+  addMeasureLine(align, cift) {
+    if (!Array.isArray(cift?.a) || !Array.isArray(cift?.b)) return
+    const geometry = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3().fromArray(cift.a),
+      new THREE.Vector3().fromArray(cift.b)
+    ])
+    geometry.userData.owned = true
+    const material = new THREE.LineBasicMaterial({ color: cift.color || '#2f8f4e' })
+    const line = new THREE.Line(geometry, material)
+    line.userData.kind = 'olcu-cizgi'
+    line.raycast = () => {}
+    align.add(line)
+  }
+
+  createMeasurePoint(hit, hedef) {
     const align = this.inspectRoot.children[0]
     if (!align || !hit.face) return
     const inverse = align.matrixWorld.clone().invert()
     const point = hit.point.clone().applyMatrix4(inverse)
     this.hooks.onMeasurePoint?.({
-      position: [point.x, point.y, point.z]
+      position: [point.x, point.y, point.z],
+      hedef
     })
   }
 
@@ -1821,7 +1844,7 @@ export class View {
 
   disposeMaterials(root) {
     root.traverse((object) => {
-      if (!object.isMesh) return
+      if (!object.isMesh && !object.isLine) return
       if (object.geometry?.userData.owned) object.geometry.dispose()
       const materials = Array.isArray(object.material) ? object.material : [object.material]
       materials.forEach((material) => material?.dispose())
