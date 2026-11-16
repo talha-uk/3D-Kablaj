@@ -84,9 +84,7 @@ check('arkadaki kenar gizli', !seenFrom(unitDir([-1, -1, 0]), frontCam, 'edge', 
 check('görünen yüzün köşesi durur', seenFrom(unitDir([1, -1, -1]), frontCam, 'corner', [[1, 0, 0], [0, -1, 0], [0, 0, -1]]))
 check('arkadaki köşe gizli', !seenFrom(unitDir([-1, -1, -1]), frontCam, 'corner', [[-1, 0, 0], [0, -1, 0], [0, 0, -1]]))
 check('sağ varken kırmızı ok durur', seenFrom([1, 0, 0], frontCam, 'axis'))
-check('sağ yokken kırmızı ok gizlenir', !seenFrom([1, 0, 0], [-1, 0.2, 0.2], 'axis'))
-check('üst yokken yeşil ok gizlenir', !seenFrom([0, 1, 0], [0.2, -1, 0.2], 'axis'))
-check('ön yokken mavi ok gizlenir', !seenFrom([0, 0, 1], [0.2, 0.2, -1], 'axis'))
+check('yüz gizlenince ok durur', seenFrom([1, 0, 0], [-1, 0.2, 0.2], 'axis') && seenFrom([0, 1, 0], [0.2, -1, 0.2], 'axis') && seenFrom([0, 0, 1], [0.2, 0.2, -1], 'axis'))
 
 const blocked = routeClear([-2, 0, 0], [-1, 0, 0], [2, 0, 0], [1, 0, 0], [{ min: [-0.4, -0.4, -0.4], max: [0.4, 0.4, 0.4] }], 0)
 const samples = []

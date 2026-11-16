@@ -207,7 +207,7 @@ function facesCamera(normal, camPos) {
 
 // Kenar ve köşe, değdiği yüzlerden biri öndeyse görünür.
 export function seenFrom(dir, camPos, kind, faces) {
-  if (kind === 'axis') return facesCamera(dir, camPos)
+  if (kind === 'axis') return true
   const parts = faces?.length ? faces : [dir]
   return parts.some((normal) => facesCamera(normal, camPos))
 }
