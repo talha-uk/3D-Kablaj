@@ -6,7 +6,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { clone as cloneObject } from 'three/addons/utils/SkeletonUtils.js'
 import { focusFor } from './focus.js'
 import { SCHEMA_TILT, aimAhead, cameraPlacement, flyDelta, groundAxes, panFocus, schemaPose, turnLook } from './fly.js'
-import { createViewCube, markCube, syncViewCube } from './viewcube.js'
+import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
 import { CABLE_RADIUS, SCHEMA_LIFT, routeClear, routeSchema, routeVia } from './route.js'
@@ -1648,6 +1648,7 @@ export class View {
     const box = this.cubeBox(width, height)
     if (px < box.x || py < box.y || px > box.x + box.size || py > box.y + box.size) return null
     syncViewCube(this.activeCamera(), this.cube.camera)
+    cullViewCube(this.cube.picks, this.cube.camera)
     const ndc = new THREE.Vector2(
       ((px - box.x) / box.size) * 2 - 1,
       -((py - box.y) / box.size) * 2 + 1
@@ -1689,6 +1690,7 @@ export class View {
   renderCube(width, height) {
     const box = this.cubeBox(width, height)
     syncViewCube(this.activeCamera(), this.cube.camera)
+    cullViewCube(this.cube.picks, this.cube.camera)
     const glY = height - box.y - box.size
     this.renderer.setScissorTest(true)
     this.renderer.setViewport(box.x, glY, box.size, box.size)

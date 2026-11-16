@@ -7,6 +7,7 @@ import { focusFor } from '../src/focus.js'
 import { routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
 import { addCable, addComponent, addModel, addPort, cableShown, emptyState, matchCable, uid } from '../src/state.js'
 import { cableLengthCm, pairCm, portWorld, scaleFromBox, scaleFromPair } from '../src/olcu.js'
+import { seenFrom } from '../src/viewcube.js'
 import fs from 'node:fs'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 
@@ -76,6 +77,11 @@ const schemaBlocked = routeSchema(
 )
 const throughMiddle = schemaBlocked.slice(1, -1).some((point) => point[0] > 1.02 && point[0] < 1.98 && Math.abs(point[2]) < 0.38)
 check('şema kablosu modelin dışından gider', schemaBlocked && !throughMiddle && schemaBlocked.some((point) => Math.abs(point[2]) >= 0.49))
+const frontCam = [1, 1, 1]
+check('öndeki yüz görünür', seenFrom([1, 0, 0], frontCam, 'face'))
+check('arkadaki yüz gizli', !seenFrom([-1, 0, 0], frontCam, 'face'))
+check('arkadaki kenar gizli', !seenFrom(unitDir([-1, -1, 0]), frontCam, 'edge'))
+check('eksen oku görünür kalır', seenFrom([1, 0, 0], frontCam, 'axis'))
 
 const blocked = routeClear([-2, 0, 0], [-1, 0, 0], [2, 0, 0], [1, 0, 0], [{ min: [-0.4, -0.4, -0.4], max: [0.4, 0.4, 0.4] }], 0)
 const samples = []
@@ -325,6 +331,11 @@ const measured = {
 }
 const length = cableLengthCm(measured, measured.cables[0], () => ({ s: fitS, x: 0, y: 0, z: 0 }))
 check('kablo santimetreye oturur', length > 9 && length < 14)
+
+function unitDir(values) {
+  const length = Math.hypot(...values)
+  return values.map((value) => value / length)
+}
 
 function boxGlb() {
   const faces = [
