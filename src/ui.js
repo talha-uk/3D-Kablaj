@@ -38,6 +38,7 @@ export function mount(hooks) {
   const ipucu = document.getElementById('ipucu')
   const bos = document.getElementById('bos')
   const modeller = document.getElementById('modeller')
+  const parcalar = document.getElementById('parcalar')
   const secilen = document.getElementById('secilen')
   const secilenNe = document.getElementById('secilen-ne')
   const secilenAd = document.getElementById('secilen-ad')
@@ -131,6 +132,63 @@ export function mount(hooks) {
       empty.className = 'not'
       empty.textContent = 'Henüz model yok.'
       modeller.append(empty)
+    }
+
+    parcalar.replaceChildren()
+    if (state.components.length === 0) {
+      const empty = document.createElement('li')
+      empty.className = 'not'
+      empty.textContent = 'Henüz parça yok.'
+      parcalar.append(empty)
+    }
+    for (const component of state.components) {
+      const block = document.createElement('li')
+      const model = state.models.find((item) => item.id === component.modelId)
+      const title = button(component.name, () => hooks.onSelect?.({ kind: 'component', id: component.id }))
+      const pickedPart = selectedComponent(state, ui)?.id === component.id
+      title.setAttribute('aria-pressed', pickedPart ? 'true' : 'false')
+      title.addEventListener('pointerenter', () => hooks.onHover?.({ kind: 'component', componentId: component.id }))
+      title.addEventListener('pointerleave', () => hooks.onHover?.(null))
+      block.append(title)
+      if (model && model.name !== component.name) {
+        const kind = document.createElement('p')
+        kind.className = 'not'
+        kind.textContent = model.name
+        block.append(kind)
+      }
+      const ports = componentPorts(state, component)
+      if (ports.length) {
+        const line = document.createElement('p')
+        line.className = 'not'
+        line.textContent = ports.map((port) => port.name).join(', ')
+        block.append(line)
+      }
+      const linked = state.cables.filter((cable) => cable.a.componentId === component.id || cable.b.componentId === component.id)
+      if (linked.length) {
+        const list = document.createElement('ul')
+        for (const cable of linked) {
+          const other = cable.a.componentId === component.id ? cable.b : cable.a
+          const pair = matchCable(
+            portTypeOf(state, cable.a.componentId, cable.a.portId),
+            portTypeOf(state, cable.b.componentId, cable.b.portId)
+          )
+          const bad = portTypeOf(state, cable.a.componentId, cable.a.portId)
+            && portTypeOf(state, cable.b.componentId, cable.b.portId)
+            && !pair
+          const row = document.createElement('li')
+          const name = button(
+            `${cable.name} → ${componentName(state, other.componentId)} ${portName(state, other.componentId, other.portId)}${bad ? ' · uyumsuz' : ''}`,
+            () => hooks.onSelect?.({ kind: 'cable', id: cable.id })
+          )
+          name.setAttribute('aria-pressed', ui.selection?.kind === 'cable' && ui.selection.id === cable.id ? 'true' : 'false')
+          name.addEventListener('pointerenter', () => hooks.onHover?.({ kind: 'cable', cableId: cable.id }))
+          name.addEventListener('pointerleave', () => hooks.onHover?.(null))
+          row.append(name)
+          list.append(row)
+        }
+        block.append(list)
+      }
+      parcalar.append(block)
     }
 
     const picked = selectedComponent(state, ui)
@@ -283,7 +341,7 @@ export function mount(hooks) {
     note.className = 'not'
     note.textContent = ui.mode === 'incele'
       ? 'Porta tıklayınca seçilir. Model görünür kalır.'
-      : 'Sahneden bir parça seç.'
+      : 'Soldan veya sahneden bir parça seç.'
     secili.append(note)
   }
 
