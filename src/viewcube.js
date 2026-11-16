@@ -44,12 +44,10 @@ function labelTexture(label, tint, ink) {
 }
 
 function glass(color, opacity) {
-  return new THREE.MeshStandardMaterial({
+  return new THREE.MeshLambertMaterial({
     color,
     transparent: true,
     opacity,
-    roughness: 0.18,
-    metalness: 0.04,
     depthWrite: false,
     emissive: 0x000000
   })
@@ -74,12 +72,11 @@ export function createViewCube() {
   for (const spec of FACES) {
     const mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(0.62, 0.62),
-      new THREE.MeshStandardMaterial({
+      new THREE.MeshLambertMaterial({
         map: labelTexture(spec.label, spec.tint, spec.ink),
         transparent: true,
-        roughness: 0.2,
-        metalness: 0.02,
-        depthWrite: false
+        depthWrite: false,
+        emissive: 0x000000
       })
     )
     mesh.userData.dir = spec.normal.slice()
@@ -135,14 +132,12 @@ export function createViewCube() {
   for (const spec of AXIS) {
     const dir = [0, 0, 0]
     dir[spec.axis] = 1
-    const material = () => new THREE.MeshStandardMaterial({
+    const material = () => new THREE.MeshLambertMaterial({
       color: spec.color,
-      roughness: 0.35,
-      metalness: 0.08,
       depthTest: false,
       emissive: 0x000000
     })
-    const shaftLen = 1.05
+    const shaftLen = 0.92
     const headLen = 0.36
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, shaftLen, 12), material())
     const head = new THREE.Mesh(new THREE.ConeGeometry(0.13, headLen, 14), material())
@@ -165,9 +160,9 @@ export function createViewCube() {
     picks.push(head)
   }
   scene.add(root)
-  scene.add(new THREE.AmbientLight(0xffffff, 0.78))
-  scene.add(new THREE.HemisphereLight(0xfff6ea, 0x9a9186, 0.7))
-  const sun = new THREE.DirectionalLight(0xffffff, 0.85)
+  scene.add(new THREE.AmbientLight(0xffffff, 0.62))
+  scene.add(new THREE.HemisphereLight(0xfff6ea, 0x9a9186, 0.28))
+  const sun = new THREE.DirectionalLight(0xffffff, 0.28)
   scene.add(sun)
   camera.userData.sun = sun
   return { scene, camera, picks }
@@ -175,7 +170,7 @@ export function createViewCube() {
 
 function placeArrow(head, shaftLen) {
   const dir = head.userData.dir
-  const corner = [-0.5, -0.5, -0.5]
+  const corner = [-0.96, -0.96, -0.96]
   const shaft = head.userData.shaft
   const headLen = head.userData.headLen
   shaft.scale.y = shaftLen / shaft.userData.baseLen
@@ -197,7 +192,11 @@ export function syncViewCube(main, cubeCam) {
   cubeCam.lookAt(0, 0, 0)
   cubeCam.updateMatrixWorld(true)
   const sun = cubeCam.userData.sun
-  if (sun) sun.position.copy(cubeCam.position)
+  if (sun) {
+    sun.position.copy(cubeCam.position)
+    sun.position.x += 2.2
+    sun.position.y += 1.1
+  }
 }
 
 function facesCamera(normal, camPos) {
@@ -208,29 +207,17 @@ function facesCamera(normal, camPos) {
 
 // Kenar ve köşe, değdiği yüzlerden biri öndeyse görünür.
 export function seenFrom(dir, camPos, kind, faces) {
-  if (kind === 'axis') return true
+  if (kind === 'axis') return facesCamera(dir, camPos)
   const parts = faces?.length ? faces : [dir]
   return parts.some((normal) => facesCamera(normal, camPos))
 }
 
 export function cullViewCube(picks, cubeCam) {
   const cam = [cubeCam.position.x, cubeCam.position.y, cubeCam.position.z]
-  const length = Math.hypot(cam[0], cam[1], cam[2]) || 1
   for (const mesh of picks) {
     mesh.visible = seenFrom(mesh.userData.dir, cam, mesh.userData.kind, mesh.userData.faces)
-    if (mesh.userData.part !== 'head') continue
-    const dir = mesh.userData.dir
-    const dot = (dir[0] * cam[0] + dir[1] * cam[1] + dir[2] * cam[2]) / length
-    let shaft = dot < 0.12 ? 1.22 : 1.02
-    while (shaft > 0.72 && !tipInside(dir, shaft, mesh.userData.headLen, cubeCam)) shaft -= 0.04
-    placeArrow(mesh, shaft)
+    if (mesh.userData.shaft) mesh.userData.shaft.visible = mesh.visible
   }
-}
-
-function tipInside(dir, shaftLen, headLen, cubeCam) {
-  const tip = [-0.5, -0.5, -0.5].map((value, index) => value + dir[index] * (shaftLen + headLen))
-  const point = new THREE.Vector3(tip[0], tip[1], tip[2]).project(cubeCam)
-  return Math.abs(point.x) <= 0.8 && Math.abs(point.y) <= 0.8 && point.z < 1
 }
 
 export function markCube(picks, direction) {
