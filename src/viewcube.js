@@ -6,8 +6,8 @@ const FACES = [
   { normal: [-1, 0, 0], label: 'Sol', tint: 'rgba(122, 150, 104, 0.94)', ink: '#1c1915' },
   { normal: [0, 1, 0], label: 'Üst', tint: 'rgba(248, 244, 236, 0.96)', ink: '#1c1915' },
   { normal: [0, -1, 0], label: 'Alt', tint: 'rgba(62, 54, 46, 0.94)', ink: '#f3efe6' },
-  { normal: [0, 0, 1], label: 'Arka', tint: 'rgba(166, 122, 90, 0.94)', ink: '#f3efe6' },
-  { normal: [0, 0, -1], label: 'Ön', tint: 'rgba(236, 214, 190, 0.96)', ink: '#1c1915' }
+  { normal: [0, 0, 1], label: 'Ön', tint: 'rgba(236, 214, 190, 0.96)', ink: '#1c1915' },
+  { normal: [0, 0, -1], label: 'Arka', tint: 'rgba(166, 122, 90, 0.94)', ink: '#f3efe6' }
 ]
 
 const AXIS = [
@@ -132,7 +132,6 @@ export function createViewCube() {
       }
     }
   }
-  const corner = [-0.5, -0.5, -0.5]
   for (const spec of AXIS) {
     const dir = [0, 0, 0]
     dir[spec.axis] = 1
@@ -150,24 +149,40 @@ export function createViewCube() {
     const aim = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...dir))
     shaft.quaternion.copy(aim)
     head.quaternion.copy(aim)
-    const shaftAt = corner.map((value, index) => value + dir[index] * (shaftLen / 2))
-    const headAt = corner.map((value, index) => value + dir[index] * (shaftLen + headLen / 2))
-    shaft.position.set(shaftAt[0], shaftAt[1], shaftAt[2])
-    head.position.set(headAt[0], headAt[1], headAt[2])
-    for (const mesh of [shaft, head]) {
-      mesh.userData.dir = dir.slice()
-      mesh.userData.kind = 'axis'
-      mesh.renderOrder = 4
-      root.add(mesh)
-      picks.push(mesh)
-    }
+    shaft.userData.baseLen = shaftLen
+    shaft.userData.dir = dir.slice()
+    shaft.userData.kind = 'axis'
+    shaft.userData.part = 'shaft'
+    shaft.renderOrder = 4
+    head.userData.dir = dir.slice()
+    head.userData.kind = 'axis'
+    head.userData.part = 'head'
+    head.userData.shaft = shaft
+    head.userData.headLen = headLen
+    head.renderOrder = 5
+    placeArrow(head, shaftLen)
+    root.add(shaft, head)
+    picks.push(head)
   }
   scene.add(root)
-  scene.add(new THREE.HemisphereLight(0xfff6ea, 0x3a342c, 1.2))
-  const sun = new THREE.DirectionalLight(0xffffff, 0.7)
-  sun.position.set(3, 4, 2)
+  scene.add(new THREE.AmbientLight(0xffffff, 0.78))
+  scene.add(new THREE.HemisphereLight(0xfff6ea, 0x9a9186, 0.7))
+  const sun = new THREE.DirectionalLight(0xffffff, 0.85)
   scene.add(sun)
+  camera.userData.sun = sun
   return { scene, camera, picks }
+}
+
+function placeArrow(head, shaftLen) {
+  const dir = head.userData.dir
+  const corner = [-0.5, -0.5, -0.5]
+  const shaft = head.userData.shaft
+  const headLen = head.userData.headLen
+  shaft.scale.y = shaftLen / shaft.userData.baseLen
+  const shaftAt = corner.map((value, index) => value + dir[index] * (shaftLen / 2))
+  const headAt = corner.map((value, index) => value + dir[index] * (shaftLen + headLen / 2))
+  shaft.position.set(shaftAt[0], shaftAt[1], shaftAt[2])
+  head.position.set(headAt[0], headAt[1], headAt[2])
 }
 
 export function syncViewCube(main, cubeCam) {
@@ -181,6 +196,8 @@ export function syncViewCube(main, cubeCam) {
   cubeCam.up.copy(up)
   cubeCam.lookAt(0, 0, 0)
   cubeCam.updateMatrixWorld(true)
+  const sun = cubeCam.userData.sun
+  if (sun) sun.position.copy(cubeCam.position)
 }
 
 function facesCamera(normal, camPos) {
@@ -198,8 +215,13 @@ export function seenFrom(dir, camPos, kind, faces) {
 
 export function cullViewCube(picks, cubeCam) {
   const cam = [cubeCam.position.x, cubeCam.position.y, cubeCam.position.z]
+  const length = Math.hypot(cam[0], cam[1], cam[2]) || 1
   for (const mesh of picks) {
     mesh.visible = seenFrom(mesh.userData.dir, cam, mesh.userData.kind, mesh.userData.faces)
+    if (mesh.userData.part !== 'head') continue
+    const dir = mesh.userData.dir
+    const dot = (dir[0] * cam[0] + dir[1] * cam[1] + dir[2] * cam[2]) / length
+    placeArrow(mesh, dot < 0.12 ? 1.9 : 1.05)
   }
 }
 
