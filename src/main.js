@@ -1,4 +1,4 @@
-import { bicimKaydi, dosyaUygun } from './bicim.js'
+import { dosyaUygun } from './bicim.js'
 import { View } from './scene.js'
 import { mount } from './ui.js'
 import { cableLengthCm, placeMeasurePoint, scaleFromEdges, scaleFromPair } from './olcu.js'
@@ -6,6 +6,7 @@ import {
   addCable,
   matchCable,
   measureOf,
+  modelSolid,
   portTypeOf,
   typeName,
   addComponent,
@@ -32,8 +33,7 @@ const demo = params.has('demo')
 let state = emptyState()
 let past = []
 let future = []
-let kayitsiz = false
-let uiState = { mode: 'yerlesim', tool: 'sec', cableType: 'guc', selection: null, inspectId: null, olcuHedef: null, bicim: 'glb' }
+let uiState = { mode: 'yerlesim', tool: 'sec', cableType: 'guc', selection: null, inspectId: null, olcuHedef: null }
 let poseMark = false
 let measureUndo = false
 
@@ -43,8 +43,6 @@ const ui = mount({
     applyMode(mode)
     publish(false)
   },
-  bicim: () => uiState.bicim,
-  onBicim: (bicim) => gecBicim(bicim),
   onTool: (tool) => {
     if (tool === 'kablo' && uiState.mode === 'incele') return
     if (tool === 'port' && uiState.mode !== 'incele') return
@@ -60,7 +58,9 @@ const ui = mount({
   },
   onUpload: (files) => { upload(files) },
   onInspect: (modelId) => {
-    uiState = { ...uiState, inspectId: modelId, selection: null }
+    const solid = modelSolid(state.models.find((item) => item.id === modelId))
+    const axis = ['merkez', 'en', 'boy', 'derinlik'].includes(uiState.olcuHedef)
+    uiState = { ...uiState, inspectId: modelId, selection: null, olcuHedef: solid && axis ? null : uiState.olcuHedef }
     applyMode('incele')
     publish(false)
   },
@@ -105,10 +105,7 @@ const ui = mount({
     view.setMode('yerlesim')
     commit({ ...emptyState(), models: state.models }, 'Yeni düzenek.')
   },
-  onDownload: () => {
-    downloadProject(state)
-    kayitsiz = false
-  },
+  onDownload: () => downloadProject(state),
   onOlcu: (modelId, olcu) => {
     if (!olcu.kenar?.merkez && ['merkez', 'en', 'boy', 'derinlik'].includes(uiState.olcuHedef)) {
       uiState = { ...uiState, olcuHedef: null }
@@ -139,7 +136,6 @@ const ui = mount({
       if (next.version !== 1) throw new Error('sürüm')
       uiState = { ...uiState, selection: null }
       commit(next, 'Proje açıldı.')
-      kayitsiz = false
     } catch {
       ui.status('Bu dosya açılamadı.')
     }
@@ -310,49 +306,15 @@ function publish(save, message) {
   view.setSelection(uiState.selection)
   const pending = view.setState(state)
   ui.render(state, uiState)
-  if (save) kayitsiz = true
   if (save && !demo) saveProject(state)
   if (message) ui.status(message)
   return pending
 }
 
-function projeDolu(proje) {
-  return proje.models.length > 0 || proje.components.length > 0 || proje.cables.length > 0
-}
-
-async function gecBicim(bicim) {
-  if (bicim !== 'glb' && bicim !== 'solid') return
-  if (bicim === uiState.bicim) return
-  if (kayitsiz) {
-    const secim = await ui.kayitSor()
-    if (secim === 'ok') downloadProject(state)
-  }
-  uiState = {
-    mode: 'yerlesim',
-    tool: 'sec',
-    cableType: 'guc',
-    selection: null,
-    inspectId: null,
-    olcuHedef: null,
-    bicim
-  }
-  view.setMode('yerlesim')
-  view.setTool('sec')
-  view.setSelection(null)
-  past = []
-  future = []
-  poseMark = false
-  state = emptyState()
-  const kayit = bicimKaydi(bicim)
-  publish(true, `${kayit.ad} modu. Yeni proje. Uzantı ${kayit.uzanti}.`)
-  kayitsiz = false
-}
-
 async function upload(files) {
-  const list = [...files].filter((file) => dosyaUygun(file.name, uiState.bicim))
+  const list = [...files].filter((file) => dosyaUygun(file.name))
   if (list.length === 0) {
-    const uzanti = uiState.bicim === 'solid' ? '.sldprt' : '.glb'
-    ui.status(uiState.bicim === 'solid' ? `Solid ayarı ${uzanti} bekliyor.` : `GLB ayarı ${uzanti} bekliyor.`)
+    ui.status('GLB veya Solid (.sldprt) dosyası gerekli.')
     return
   }
   let next = state
@@ -537,7 +499,6 @@ async function boot() {
   } else {
     await loadDemo()
   }
-  kayitsiz = projeDolu(state)
   view.setMode(uiState.mode)
   publish(false, demo ? 'Örnek kutu yüklendi.' : 'Hazır.')
 }

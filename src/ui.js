@@ -1,4 +1,4 @@
-import { bicimKaydi } from './bicim.js'
+import { modelSolid } from './state.js'
 import { decimalText, pairCm } from './olcu.js'
 import { componentName, componentPorts, matchCable, measureOf, portName, portTypeOf, typeName } from './state.js'
 import { bindTabs, bindToolbar } from './keys.js'
@@ -38,34 +38,6 @@ export function mount(hooks) {
   const jsonDosya = document.getElementById('json-dosya')
   const kutuphane = document.getElementById('kutuphane')
   const ekran = document.getElementById('ekran')
-
-  const mod = document.getElementById('mod')
-  const modAc = document.getElementById('mod-ac')
-  modAc.addEventListener('click', () => {
-    const gecerli = hooks.bicim?.() || 'glb'
-    for (const item of mod.querySelectorAll('[data-bicim]')) {
-      const on = item.dataset.bicim === gecerli
-      item.setAttribute('aria-pressed', on ? 'true' : 'false')
-      item.toggleAttribute('autofocus', on)
-    }
-    if (!('commandForElement' in HTMLButtonElement.prototype) && !mod.open) mod.showModal()
-  })
-  mod.addEventListener('close', () => {
-    const bicim = mod.returnValue
-    mod.returnValue = ''
-    if (bicim === 'glb' || bicim === 'solid') hooks.onBicim?.(bicim)
-  })
-  if (!('closedBy' in HTMLDialogElement.prototype)) {
-    const outside = (event, dialog) => {
-      const rect = dialog.getBoundingClientRect()
-      return event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom
-    }
-    let pressedOutside = false
-    mod.addEventListener('pointerdown', (event) => { pressedOutside = outside(event, mod) })
-    mod.addEventListener('pointerup', (event) => {
-      if (pressedOutside && outside(event, mod)) mod.close()
-    })
-  }
 
   document.getElementById('yukle').addEventListener('click', () => dosya.click())
   dosya.addEventListener('change', () => {
@@ -144,7 +116,6 @@ export function mount(hooks) {
       }
     }
     tabs.setMode(ui.mode)
-    dosya.accept = bicimKaydi(ui.bicim).accept
 
     const showEmpty = ui.mode === 'incele' ? !ui.inspectId : state.components.length === 0
     bos.hidden = !showEmpty
@@ -397,7 +368,7 @@ export function mount(hooks) {
       row.append(swatch, name, pick, unit)
       group.append(row)
     }
-    if (hooks.bicim?.() !== 'solid') box.append(disclosure('olcu', 'Ölçü', merkez, autoLabel, group))
+    if (!modelSolid(model)) box.append(disclosure('olcu', 'Ölçü', merkez, autoLabel, group))
     const cift = {
       a: Array.isArray(olcu.cift?.a) ? olcu.cift.a : null,
       b: Array.isArray(olcu.cift?.b) ? olcu.cift.b : null,
@@ -459,7 +430,7 @@ export function mount(hooks) {
         ? null
         : removeButton(() => hooks.onRemoveModel?.(model.id))
     }))
-    if (!modelRows.length) modelRows.push(noteItem(`${bicimKaydi(ui.bicim).uzanti} dosyasını buraya bırak.`, 1))
+    if (!modelRows.length) modelRows.push(noteItem('GLB veya .sldprt dosyasını buraya bırak.', 1))
     const sceneRows = state.components.map((component) => {
       const children = []
       for (const port of componentPorts(state, component)) {
@@ -612,9 +583,6 @@ export function mount(hooks) {
         input.value = value
         input.select()
       }).then((value) => (value === 'ok' ? dialog.querySelector('input').value.trim() : null))
-    },
-    kayitSor() {
-      return ask(document.getElementById('mod-kayit'), () => {})
     },
     confirm(title, text, ok) {
       const dialog = document.getElementById('onay')

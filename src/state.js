@@ -36,6 +36,10 @@ export const PORT_TYPES = [
   { id: 'guc', name: 'Güç' }
 ]
 
+export function modelSolid(model) {
+  return model?.birim === 'cm' || Boolean(model?.boyut)
+}
+
 export function typeName(id) {
   return PORT_TYPES.find((item) => item.id === id)?.name
     || CABLE_TYPES.find((item) => item.id === id)?.name

@@ -11,7 +11,7 @@ import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
 import { cableRadius, plugReach, SCHEMA_LIFT, routeClear, routeSchema, routeVia } from './route.js'
-import { cableShown, portTypeOf } from './state.js'
+import { cableShown, modelSolid, portTypeOf } from './state.js'
 
 function ownedBox(width, height, depth) {
   const geometry = new THREE.BoxGeometry(width, height, depth)
@@ -958,7 +958,7 @@ export class View {
     align.add(visual)
     const record = this.state.models.find((item) => item.id === component.modelId)
     const ports = [...(record?.ports || []), ...(component.ports || [])]
-    const solid = this.hooks.bicim?.() === 'solid'
+    const solid = modelSolid(record)
     for (const port of ports) align.add(this.makePort(component, port, fit))
     this.addMeasureDots(align, measureDots(record, solid), fit, false)
     if (!solid) this.addMeasureEdges(align, record?.olcu?.kenar)
@@ -1049,7 +1049,7 @@ export class View {
       object.userData.kind = 'submesh'
     })
     align.add(visual)
-    const solid = this.hooks.bicim?.() === 'solid'
+    const solid = modelSolid(record)
     for (const port of ports) align.add(this.makePort({ id: 'incele' }, port, fit))
     this.addMeasureDots(align, measureDots(record, solid), fit, true)
     if (!solid) this.addMeasureEdges(align, kenar)
@@ -1803,7 +1803,8 @@ export class View {
         this.createMeasurePoint(hit, hedef)
         return
       }
-      if (this.hooks.bicim?.() !== 'solid' && (hedef === 'merkez' || hedef === 'en' || hedef === 'boy' || hedef === 'derinlik')) {
+      const solid = modelSolid(this.state?.models?.find((item) => item.id === this.inspectRoot.userData.modelId))
+      if (!solid && (hedef === 'merkez' || hedef === 'en' || hedef === 'boy' || hedef === 'derinlik')) {
         this.createCornerMeasure(hit, hedef)
         return
       }
@@ -1815,7 +1816,7 @@ export class View {
         this.createModelPort(hit)
       }
       if (this.tool === 'olcu') {
-        const yazi = this.hooks.bicim?.() === 'solid'
+        const yazi = solid
           ? 'Sağdan mesafe ölç ile iki nokta seç.'
           : 'Sağdan merkez, kenar ucu veya mesafe belirle.'
         this.hooks.status?.(yazi)

@@ -6,7 +6,7 @@ import { headingFromQuaternion, portOrientation, portRoll } from '../src/yaw.js'
 import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
 import { cableRadius, CABLE_OD_MM, plugReach, routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
-import { addCable, addComponent, addModel, addPort, cableShown, emptyState, matchCable, uid } from '../src/state.js'
+import { addCable, addComponent, addModel, addPort, cableShown, emptyState, matchCable, modelSolid, uid } from '../src/state.js'
 import { cableLengthCm, decimalText, exteriorMask, modelUnit, nearestMeasureCorner, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference, uniqueMeasureCorner } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
 import fs from 'node:fs'
@@ -161,8 +161,8 @@ check('büyük modelde hız boyla artar', board > 9.6 && board <= 28.8 && flyRat
 check('çentik zoomu aynı kalır', Math.abs(dollyScale(wheelPixels({ deltaY: 100, deltaMode: 0 })) - 0.95) < 1e-9)
 check('dev tekerlek tavana takılır', wheelPixels({ deltaY: 4000, deltaMode: 0 }) === 140)
 check('sıkıştırma da tavana takılır', wheelPixels({ deltaY: 200, deltaMode: 0, ctrlKey: true }) === 140)
-check('glb ayarı yalnız glb alır', dosyaUygun('kutu.glb', 'glb') && !dosyaUygun('kutu.SLDPRT', 'glb'))
-check('solid ayarı yalnız sldprt alır', dosyaUygun('parca.SLDPRT', 'solid') && !dosyaUygun('parca.glb', 'solid'))
+check('glb ve solid dosyası yüklenir', dosyaUygun('kutu.glb') && dosyaUygun('parca.SLDPRT') && !dosyaUygun('not.txt'))
+check('solid modelde ölçü dosyadan gelir', modelSolid({ birim: 'cm', boyut: '10 mm' }) && !modelSolid({ name: 'kutu' }))
 
 const still = new THREE.PerspectiveCamera(45, 1, 0.1, 100)
 still.position.set(3, 2.4, 4)
