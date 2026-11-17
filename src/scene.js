@@ -6,7 +6,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { clone as cloneObject } from 'three/addons/utils/SkeletonUtils.js'
 import { focusFor } from './focus.js'
 import { SCHEMA_TILT, aimAhead, axisAngles, cameraPlacement, flyDelta, groundAxes, panFocus, schemaPose, turnLook } from './fly.js'
-import { pairCm, snapEdgeCorner, snapModelCorner, snapReference } from './olcu.js'
+import { snapEdgeCorner, snapModelCorner, snapReference } from './olcu.js'
 import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
@@ -309,35 +309,6 @@ function measureDots(record) {
   if (Array.isArray(cift?.a)) dots.push({ position: cift.a, color: PAIR_COLOR })
   if (Array.isArray(cift?.b)) dots.push({ position: cift.b, color: PAIR_COLOR })
   return dots
-}
-
-function pairLabel(record, fitS) {
-  const cift = record?.olcu?.cift
-  if (!Array.isArray(cift?.a) || !Array.isArray(cift?.b) || !(fitS > 0) || !(record?.olcek > 0)) return ''
-  const cm = pairCm(cift.a, cift.b, fitS, record.olcek)
-  return Number.isFinite(cm) ? `${cm.toFixed(1)} cm` : ''
-}
-
-function measureSprite(text) {
-  const canvas = document.createElement('canvas')
-  canvas.width = 320
-  canvas.height = 80
-  const context = canvas.getContext('2d')
-  context.fillStyle = 'rgba(255, 253, 248, 0.94)'
-  context.fillRect(0, 0, 320, 80)
-  context.fillStyle = '#14532d'
-  context.font = 'bold 44px sans-serif'
-  context.textAlign = 'center'
-  context.textBaseline = 'middle'
-  context.fillText(text, 160, 42)
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.colorSpace = THREE.SRGBColorSpace
-  const material = new THREE.SpriteMaterial({ map: texture, depthTest: false })
-  material.userData.ownedMap = true
-  const sprite = new THREE.Sprite(material)
-  sprite.raycast = () => {}
-  sprite.userData.kind = 'olcu-cizgi'
-  return sprite
 }
 
 function measure(scene) {
@@ -770,7 +741,7 @@ export class View {
     for (const port of ports) align.add(this.makePort(component, port, fit.s))
     this.addMeasureDots(align, measureDots(record), fit.s)
     this.addMeasureEdges(align, record?.olcu?.kenar)
-    this.addMeasureLine(align, record?.olcu?.cift, pairLabel(record, fit.s), fit.s)
+    this.addMeasureLine(align, record?.olcu?.cift)
     const group = new THREE.Group()
     group.name = component.id
     group.userData.componentId = component.id
@@ -865,7 +836,7 @@ export class View {
     for (const port of ports) align.add(this.makePort({ id: 'incele' }, port, fit.s))
     this.addMeasureDots(align, measureDots(record), fit.s)
     this.addMeasureEdges(align, kenar)
-    this.addMeasureLine(align, cift, pairLabel(record, fit.s), fit.s)
+    this.addMeasureLine(align, cift)
     this.inspectRoot.add(align)
     this.indexPivots(this.inspectRoot)
     if (!keepCamera) this.frameObject(this.inspectRoot)
@@ -1616,7 +1587,7 @@ export class View {
     }
   }
 
-  addMeasureLine(align, cift, label, fitScale) {
+  addMeasureLine(align, cift) {
     if (!Array.isArray(cift?.a) || !Array.isArray(cift?.b)) return
     const geometry = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3().fromArray(cift.a),
@@ -1627,16 +1598,6 @@ export class View {
     line.userData.kind = 'olcu-cizgi'
     line.raycast = () => {}
     align.add(line)
-    if (!label) return
-    const sprite = measureSprite(label)
-    sprite.position.set(
-      (cift.a[0] + cift.b[0]) / 2,
-      (cift.a[1] + cift.b[1]) / 2,
-      (cift.a[2] + cift.b[2]) / 2
-    )
-    sprite.scale.set(0.28 / fitScale, 0.07 / fitScale, 1)
-    sprite.renderOrder = 11
-    align.add(sprite)
   }
 
   meshTriangles(mesh, inverse) {
