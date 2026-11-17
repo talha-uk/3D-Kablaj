@@ -281,22 +281,26 @@ export function routeThrough(aPos, aNormal, bPos, bNormal, via) {
   return dedupe([aPos, start, via, end, bPos])
 }
 
-export function cableRadius(type) {
-  return CABLE_RADIUS[type] || 0.18
+// Dış çap, mm. Sahne santimetredir; yarıçap = çap / 20.
+// sma: RG-316, 2,5 mm. rf: RG-58, 5,0 mm. ntype: RG-213, 10,3 mm.
+// usb2: tipik USB 2.0 kılıfı 4,0 mm. usb3: 5,5 mm. usbc: tam donanımlı Type-C 4,5 mm.
+// ag: Cat6 U/UTP, IEC 61156-5 sınıfı nominal 5,9 mm.
+// guc: EN 50525-2-11 H05VV-F 3G0,75 nominal 6,7 mm.
+export const CABLE_OD_MM = {
+  sma: 2.5,
+  rf: 5,
+  ntype: 10.3,
+  usb2: 4,
+  usb: 4,
+  usb3: 5.5,
+  usbc: 4.5,
+  ag: 5.9,
+  guc: 6.7,
+  diger: 4
 }
 
-// Santimetre yarıçap. Her modelde aynı kılıf.
-export const CABLE_RADIUS = {
-  sma: 0.13,
-  rf: 0.13,
-  ntype: 0.28,
-  usb2: 0.18,
-  usb: 0.18,
-  usb3: 0.2,
-  usbc: 0.18,
-  ag: 0.28,
-  guc: 0.25,
-  diger: 0.18
+export function cableRadius(type) {
+  return (CABLE_OD_MM[type] || CABLE_OD_MM.diger) / 20
 }
 export const SCHEMA_LIFT = {
   sma: 0.008,

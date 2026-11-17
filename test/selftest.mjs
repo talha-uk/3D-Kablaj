@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { headingFromQuaternion, portOrientation, portRoll } from '../src/yaw.js'
 import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
-import { cableRadius, routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
+import { cableRadius, CABLE_OD_MM, routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
 import { addCable, addComponent, addModel, addPort, cableShown, emptyState, matchCable, uid } from '../src/state.js'
 import { cableLengthCm, decimalText, exteriorMask, modelUnit, nearestMeasureCorner, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference, uniqueMeasureCorner } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
@@ -494,7 +494,7 @@ const measured = {
 }
 const length = cableLengthCm(measured, measured.cables[0], () => ({ s: 1, x: 0, y: 0, z: 0 }))
 check('kablo santimetreye oturur', length > 9 && length < 14)
-check('kablo her modelde aynı kalınlıkta', cableRadius('guc') === 0.25 && cableRadius('sma') === 0.13 && cableRadius('ag') === 0.28)
+check('kablo gerçek dış çapa oturur', cableRadius('sma') === CABLE_OD_MM.sma / 20 && cableRadius('guc') === 6.7 / 20 && cableRadius('ntype') === 10.3 / 20 && cableRadius('ag') === 5.9 / 20)
 check('solid metre dosyası santime çevrilir', modelUnit({ boyut: '10 × 10 × 10 mm' }) === 100)
 check('yeni solid santim olarak durur', modelUnit({ boyut: '10 × 10 × 10 mm', birim: 'cm' }) === 1)
 check('glb olduğu gibi durur', modelUnit({ name: 'kutu' }) === 1)
