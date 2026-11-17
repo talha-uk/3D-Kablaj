@@ -349,13 +349,13 @@ function pullAxisCorners(olcu) {
   const kenar = { ...olcu.kenar }
   let changed = false
   for (const key of ['en', 'boy', 'derinlik']) {
-    if (!kenar[key]) continue
-    const snapped = view.nearestAxisCorner(anchor, key, kenar[key])
-    const same = snapped
-      && snapped[0] === kenar[key][0]
-      && snapped[1] === kenar[key][1]
-      && snapped[2] === kenar[key][2]
-    if (same) continue
+    const prev = kenar[key]
+    const snapped = view.nearestAxisCorner(anchor, key, prev || anchor)
+    const same = snapped && prev
+      && snapped[0] === prev[0]
+      && snapped[1] === prev[1]
+      && snapped[2] === prev[2]
+    if (same || (!snapped && !prev)) continue
     kenar[key] = snapped
     changed = true
   }
