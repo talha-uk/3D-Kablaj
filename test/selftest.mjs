@@ -6,7 +6,7 @@ import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
 import { routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
 import { addCable, addComponent, addModel, addPort, cableShown, emptyState, matchCable, uid } from '../src/state.js'
-import { cableLengthCm, decimalText, exteriorMask, pairCm, placeMeasurePoint, portWorld, scaleFromBox, scaleFromEdges, scaleFromPair, snapEdgeCorner, snapModelCorner, snapReference } from '../src/olcu.js'
+import { cableLengthCm, decimalText, exteriorMask, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapEdgeCorner, snapModelCorner, snapReference } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
 import fs from 'node:fs'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
@@ -368,6 +368,15 @@ const shell = [...boxFaces(0, 0, 0, 4, 4, 4), ...boxFaces(1, 1, 1, 2, 2, 2)]
 const shellMask = exteriorMask(shell)
 check('dış kutu durur', shellMask.slice(0, 12).every(Boolean))
 check('iç kutu elenir', shellMask.slice(12).every((item) => item === false))
+const bump = [
+  [[0, 0, 0], [4, 0, 0], [4, 4, 0]],
+  [[0, 0, 0], [4, 4, 0], [0, 4, 0]],
+  [[1, 1, 0.4], [2, 1, 0.4], [2, 2, 0.4]],
+  [[1, 1, 0.4], [2, 2, 0.4], [1, 2, 0.4]]
+]
+const island = sameFaceTriangles(bump, [0.2, 0.2, 0], [0, 0, 1])
+check('iki nokta tıklanan yüzde kalır', island.length === 2)
+check('çıkıntı aynı yüze karışmaz', island.every((tri) => tri[0][2] === 0))
 check('ölçü ondalığı tek nokta', decimalText('1.2.3') === '1.23')
 check('ölçeklenmiş gövde 10 cm', Math.abs(pairCm([0, 0, 0], [10, 0, 0], fitS, bodyScale) - 10) < 1e-6)
 check('SMA ucu 11 cm de kalır', Math.abs(pairCm([0, 0, 0], [11, 0, 0], fitS, bodyScale) - 11) < 1e-6)

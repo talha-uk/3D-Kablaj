@@ -209,59 +209,104 @@ function triangleNormal(tri) {
   return scale(n, 1 / length)
 }
 
-function rayHit(origin, dir, tri) {
-  const edge1 = sub(tri[1], tri[0])
-  const edge2 = sub(tri[2], tri[0])
-  const p = cross(dir, edge2)
-  const det = dot(edge1, p)
-  if (Math.abs(det) < 1e-8) return null
-  const inv = 1 / det
-  const tvec = sub(origin, tri[0])
-  const u = dot(tvec, p) * inv
-  if (u < -1e-4 || u > 1 + 1e-4) return null
-  const q = cross(tvec, edge1)
-  const v = dot(dir, q) * inv
-  if (v < -1e-4 || u + v > 1 + 1e-4) return null
-  const t = dot(edge2, q) * inv
-  return t > 1e-6 ? t : null
+function unit(v) {
+  const length = lengthOf(v)
+  return length < 1e-10 ? [1, 0, 0] : scale(v, 1 / length)
 }
 
-// Dış kabuk: merkezden dışarı giden ışığın ilk değdiği yüz. İçerideki yüz arkada kalır.
+function perpendicular(dir) {
+  const axis = Math.abs(dir[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0]
+  return unit(cross(dir, axis))
+}
+
+// Her açıdan arkada kalan yüz içtir. Bir açıdan önde görünen yüz kullanılabilir.
 export function exteriorMask(triangles) {
-  const mask = triangles.map(() => false)
-  if (!triangles.length) return mask
+  const visible = triangles.map(() => false)
+  if (!triangles.length) return visible
   let min = [Infinity, Infinity, Infinity]
   let max = [-Infinity, -Infinity, -Infinity]
-  const centers = triangles.map((tri) => {
-    const center = [0, 0, 0]
+  for (const tri of triangles) {
     for (const vertex of tri) {
       for (let axis = 0; axis < 3; axis += 1) {
-        center[axis] += vertex[axis] / 3
         min[axis] = Math.min(min[axis], vertex[axis])
         max[axis] = Math.max(max[axis], vertex[axis])
       }
     }
-    return center
-  })
-  const mid = min.map((value, axis) => (value + max[axis]) / 2)
-  const span = Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) || 1
-  const slack = span * 0.004
-  centers.forEach((point, index) => {
-    const outward = sub(point, mid)
-    const distance = lengthOf(outward) || 1
-    const dir = scale(outward, -1 / distance)
-    const origin = add(point, scale(outward, span / distance))
-    let first = Infinity
-    for (let other = 0; other < triangles.length; other += 1) {
-      const hit = rayHit(origin, dir, triangles[other])
-      if (hit != null && hit < first) {
-        first = hit
-        if (first < span - slack) break
-      }
+  }
+  const corners = [0, 1].flatMap((x) => [0, 1].flatMap((y) => [0, 1].map((z) => [
+    x ? max[0] : min[0], y ? max[1] : min[1], z ? max[2] : min[2]
+  ])))
+  const directions = [
+    [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1],
+    [1, 1, 1], [1, 1, -1], [1, -1, 1], [1, -1, -1], [-1, 1, 1], [-1, 1, -1], [-1, -1, 1], [-1, -1, -1]
+  ].map(unit)
+  const resolution = 72
+  for (const dir of directions) {
+    const right = perpendicular(dir)
+    const up = unit(cross(dir, right))
+    let u0 = Infinity
+    let u1 = -Infinity
+    let v0 = Infinity
+    let v1 = -Infinity
+    for (const corner of corners) {
+      u0 = Math.min(u0, dot(corner, right))
+      u1 = Math.max(u1, dot(corner, right))
+      v0 = Math.min(v0, dot(corner, up))
+      v1 = Math.max(v1, dot(corner, up))
     }
-    mask[index] = first >= span - slack
+    const du = Math.max(u1 - u0, 1e-8)
+    const dv = Math.max(v1 - v0, 1e-8)
+    const depth = new Float32Array(resolution * resolution).fill(-Infinity)
+    const owner = new Int32Array(resolution * resolution).fill(-1)
+    triangles.forEach((tri, index) => {
+      const uv = tri.map((point) => ({
+        u: (dot(point, right) - u0) / du * (resolution - 1),
+        v: (dot(point, up) - v0) / dv * (resolution - 1),
+        d: dot(point, dir)
+      }))
+      const area = (uv[1].u - uv[0].u) * (uv[2].v - uv[0].v) - (uv[2].u - uv[0].u) * (uv[1].v - uv[0].v)
+      if (!Number.isFinite(area) || Math.abs(area) < 1e-8) return
+      let x0 = Infinity
+      let x1 = -Infinity
+      let y0 = Infinity
+      let y1 = -Infinity
+      for (const point of uv) {
+        x0 = Math.min(x0, point.u)
+        x1 = Math.max(x1, point.u)
+        y0 = Math.min(y0, point.v)
+        y1 = Math.max(y1, point.v)
+      }
+      for (let y = Math.max(0, Math.floor(y0)); y <= Math.min(resolution - 1, Math.ceil(y1)); y += 1) {
+        for (let x = Math.max(0, Math.floor(x0)); x <= Math.min(resolution - 1, Math.ceil(x1)); x += 1) {
+          const u = x + 0.5
+          const v = y + 0.5
+          const w0 = ((uv[1].u - u) * (uv[2].v - v) - (uv[2].u - u) * (uv[1].v - v)) / area
+          const w1 = ((uv[2].u - u) * (uv[0].v - v) - (uv[0].u - u) * (uv[2].v - v)) / area
+          const w2 = 1 - w0 - w1
+          if (w0 < -0.01 || w1 < -0.01 || w2 < -0.01) continue
+          const slot = x + y * resolution
+          const front = w0 * uv[0].d + w1 * uv[1].d + w2 * uv[2].d
+          if (front > depth[slot]) {
+            depth[slot] = front
+            owner[slot] = index
+          }
+        }
+      }
+    })
+    for (const index of owner) if (index >= 0) visible[index] = true
+  }
+  return visible
+}
+
+// Tıklanan yüzle aynı düzlem. Çıkıntı ve girinti bu kümeye girmez.
+export function sameFaceTriangles(triangles, point, normal) {
+  const n = norm(normal)
+  const d = dot(n, point)
+  return triangles.filter((tri) => {
+    const tn = triangleNormal(tri)
+    if (!tn || Math.abs(Math.abs(dot(tn, n)) - 1) > 0.001) return false
+    return tri.every((vertex) => Math.abs(dot(n, vertex) - d) < 1e-3)
   })
-  return mask
 }
 
 // Keskin veya açık kenarlar. Düz yüzde üçgen köşegeni kenar sayılmaz.

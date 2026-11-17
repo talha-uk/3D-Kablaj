@@ -6,7 +6,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { clone as cloneObject } from 'three/addons/utils/SkeletonUtils.js'
 import { focusFor } from './focus.js'
 import { SCHEMA_TILT, aimAhead, axisAngles, cameraPlacement, flyDelta, groundAxes, panFocus, schemaPose, turnLook } from './fly.js'
-import { exteriorMask, snapEdgeCorner, snapModelCorner, snapReference } from './olcu.js'
+import { exteriorMask, sameFaceTriangles, snapEdgeCorner, snapModelCorner, snapReference } from './olcu.js'
 import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
@@ -1681,13 +1681,7 @@ export class View {
   faceIsExterior(hit) {
     const geometry = hit?.object?.geometry
     if (!geometry || hit.faceIndex == null) return false
-    if (!this.exteriorFaces(geometry)?.[hit.faceIndex]) return false
-    if (!hit.point) return true
-    if (!geometry.boundingSphere) geometry.computeBoundingSphere()
-    const center = geometry.boundingSphere.center.clone().applyMatrix4(hit.object.matrixWorld)
-    const outward = hit.point.clone().sub(center)
-    if (outward.lengthSq() < 1e-12) return true
-    return this.activeCamera().position.clone().sub(hit.point).dot(outward) > 0
+    return Boolean(this.exteriorFaces(geometry)?.[hit.faceIndex])
   }
 
   cameraEnclosed(object) {
@@ -1777,13 +1771,10 @@ export class View {
       return
     }
     const snap = this.hooks.olcuSnap?.() || 'yuzey'
-    const result = snapReference(
-      this.meshTriangles(hit.object, inverse),
-      [point.x, point.y, point.z],
-      [normal.x, normal.y, normal.z],
-      snap,
-      null
-    )
+    const raw = [point.x, point.y, point.z]
+    const facing = [normal.x, normal.y, normal.z]
+    const island = sameFaceTriangles(this.meshTriangles(hit.object, inverse), raw, facing)
+    const result = snapReference(island, raw, facing, snap, null)
     if (!result) {
       if (!drag) this.hooks.status?.(snap === 'kenar' ? 'Keskin bir kenar bulunamadı.' : 'Bu tıkta nokta bulunamadı.')
       return
