@@ -1671,7 +1671,13 @@ export class View {
   faceIsExterior(hit) {
     const geometry = hit?.object?.geometry
     if (!geometry || hit.faceIndex == null) return false
-    return Boolean(this.exteriorFaces(geometry)?.[hit.faceIndex])
+    if (!this.exteriorFaces(geometry)?.[hit.faceIndex]) return false
+    if (!hit.point) return true
+    if (!geometry.boundingSphere) geometry.computeBoundingSphere()
+    const center = geometry.boundingSphere.center.clone().applyMatrix4(hit.object.matrixWorld)
+    const outward = hit.point.clone().sub(center)
+    if (outward.lengthSq() < 1e-12) return true
+    return this.activeCamera().position.clone().sub(hit.point).dot(outward) > 0
   }
 
   meshTriangles(mesh, inverse) {

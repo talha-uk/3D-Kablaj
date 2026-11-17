@@ -209,7 +209,7 @@ function triangleNormal(tri) {
   return scale(n, 1 / length)
 }
 
-function rayTriangle(origin, dir, tri, minT) {
+function rayHit(origin, dir, tri) {
   const edge1 = sub(tri[1], tri[0])
   const edge2 = sub(tri[2], tri[0])
   const p = cross(dir, edge2)
@@ -223,100 +223,45 @@ function rayTriangle(origin, dir, tri, minT) {
   const v = dot(dir, q) * inv
   if (v < -1e-4 || u + v > 1 + 1e-4) return null
   const t = dot(edge2, q) * inv
-  return t > minT ? t : null
+  return t > 1e-6 ? t : null
 }
 
-// Dış kabuk: en az bir normal yönü boşluğa açılır. İki yanı da kapalı yüz iç sayılır.
+// Dış kabuk: merkezden dışarı giden ışığın ilk değdiği yüz. İçerideki yüz arkada kalır.
 export function exteriorMask(triangles) {
-  const faces = triangles.map((tri) => {
-    const normal = triangleNormal(tri)
-    const center = normal && [
-      (tri[0][0] + tri[1][0] + tri[2][0]) / 3,
-      (tri[0][1] + tri[1][1] + tri[2][1]) / 3,
-      (tri[0][2] + tri[1][2] + tri[2][2]) / 3
-    ]
-    const reach = normal
-      ? 0.35 * Math.max(
-        lengthOf(sub(tri[1], tri[0])),
-        lengthOf(sub(tri[2], tri[1])),
-        lengthOf(sub(tri[0], tri[2]))
-      )
-      : 0
-    return { tri, normal, center, reach }
-  })
+  const mask = triangles.map(() => false)
+  if (!triangles.length) return mask
   let min = [Infinity, Infinity, Infinity]
   let max = [-Infinity, -Infinity, -Infinity]
-  for (const face of faces) {
-    if (!face.normal) continue
-    for (const vertex of face.tri) {
+  const centers = triangles.map((tri) => {
+    const center = [0, 0, 0]
+    for (const vertex of tri) {
       for (let axis = 0; axis < 3; axis += 1) {
+        center[axis] += vertex[axis] / 3
         min[axis] = Math.min(min[axis], vertex[axis])
         max[axis] = Math.max(max[axis], vertex[axis])
       }
     }
-  }
-  const count = Math.max(1, Math.round(Math.cbrt(Math.max(faces.length, 1))))
-  const size = [0, 1, 2].map((axis) => Math.max((max[axis] - min[axis]) / count, 1e-8))
-  const cells = new Map()
-  const cellKey = (x, y, z) => x + count * (y + count * z)
-  const cellAt = (point) => [0, 1, 2].map((axis) => (
-    Math.max(0, Math.min(count - 1, Math.floor((point[axis] - min[axis]) / size[axis])))
-  ))
-  faces.forEach((face, index) => {
-    if (!face.normal) return
-    const start = cellAt(face.tri[0])
-    const end = cellAt(face.tri[0])
-    for (const vertex of face.tri) {
-      const cell = cellAt(vertex)
-      for (let axis = 0; axis < 3; axis += 1) {
-        start[axis] = Math.min(start[axis], cell[axis])
-        end[axis] = Math.max(end[axis], cell[axis])
-      }
-    }
-    for (let x = start[0]; x <= end[0]; x += 1) {
-      for (let y = start[1]; y <= end[1]; y += 1) {
-        for (let z = start[2]; z <= end[2]; z += 1) {
-          const key = cellKey(x, y, z)
-          const bucket = cells.get(key) || []
-          bucket.push(index)
-          cells.set(key, bucket)
-        }
-      }
-    }
+    return center
   })
-  const blocked = (origin, dir, skip) => {
-    const cell = [0, 1, 2].map((axis) => Math.floor((origin[axis] - min[axis]) / size[axis]))
-    if (cell.some((value, axis) => value < 0 || value >= count || !Number.isFinite(origin[axis]))) return false
-    const step = dir.map((value) => (value > 0 ? 1 : value < 0 ? -1 : 0))
-    const delta = dir.map((value, axis) => (step[axis] === 0 ? Infinity : Math.abs(size[axis] / value)))
-    const maxT = dir.map((value, axis) => {
-      if (step[axis] === 0) return Infinity
-      const boundary = min[axis] + (step[axis] > 0 ? cell[axis] + 1 : cell[axis]) * size[axis]
-      return (boundary - origin[axis]) / value
-    })
-    const seen = new Set()
-    for (let guard = 0; guard < count * 4; guard += 1) {
-      const bucket = cells.get(cellKey(cell[0], cell[1], cell[2]))
-      if (bucket) {
-        for (const index of bucket) {
-          if (index === skip || seen.has(index)) continue
-          seen.add(index)
-          if (rayTriangle(origin, dir, faces[index].tri, 1e-6) != null) return true
-        }
+  const mid = min.map((value, axis) => (value + max[axis]) / 2)
+  const span = Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) || 1
+  const slack = span * 0.004
+  centers.forEach((point, index) => {
+    const outward = sub(point, mid)
+    const distance = lengthOf(outward) || 1
+    const dir = scale(outward, -1 / distance)
+    const origin = add(point, scale(outward, span / distance))
+    let first = Infinity
+    for (let other = 0; other < triangles.length; other += 1) {
+      const hit = rayHit(origin, dir, triangles[other])
+      if (hit != null && hit < first) {
+        first = hit
+        if (first < span - slack) break
       }
-      const axis = maxT[0] <= maxT[1] && maxT[0] <= maxT[2] ? 0 : maxT[1] <= maxT[2] ? 1 : 2
-      if (!Number.isFinite(maxT[axis])) return false
-      cell[axis] += step[axis]
-      if (cell[axis] < 0 || cell[axis] >= count) return false
-      maxT[axis] += delta[axis]
     }
-    return false
-  }
-  return faces.map((face, index) => {
-    if (!face.normal) return false
-    const open = (dir) => !blocked(add(face.center, scale(dir, face.reach)), dir, index)
-    return open(face.normal) || open(scale(face.normal, -1))
+    mask[index] = first >= span - slack
   })
+  return mask
 }
 
 // Keskin veya açık kenarlar. Düz yüzde üçgen köşegeni kenar sayılmaz.
