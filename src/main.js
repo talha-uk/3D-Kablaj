@@ -360,7 +360,7 @@ async function upload(files) {
   try {
     for (const file of list) {
       const meta = await uploadModel(file)
-      next = addModel(next, { id: meta.id, name: meta.name, file: meta.file, boyut: meta.boyut || null })
+      next = addModel(next, { id: meta.id, name: meta.name, file: meta.file, boyut: meta.boyut || null, birim: meta.birim || null })
       uiState = { ...uiState, inspectId: meta.id }
       if (meta.boyut) boyut = meta.boyut
     }
@@ -377,6 +377,17 @@ async function place(modelId) {
   if (!model) return
   const next = addComponent(state, modelId, model.name)
   const created = next.components[next.components.length - 1]
+  const fit = view.fitOf(modelId)
+  const reach = Math.max(fit?.dx || 0, fit?.dz || 0)
+  if (reach > 1.2) {
+    const step = reach + 2
+    const index = next.components.length - 1
+    const column = index % 5
+    const row = Math.floor(index / 5)
+    created.position = [column * step, 0, row * step]
+    created.schema.x = column * step
+    created.schema.z = row * step
+  }
   uiState = { ...uiState, selection: { kind: 'component', id: created.id }, mode: 'yerlesim', tool: 'tasi', inspectId: modelId }
   view.setMode('yerlesim')
   view.setTool('tasi')

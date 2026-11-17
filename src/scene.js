@@ -6,7 +6,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { clone as cloneObject } from 'three/addons/utils/SkeletonUtils.js'
 import { focusFor } from './focus.js'
 import { SCHEMA_TILT, aimAhead, axisAngles, cameraPlacement, dollyScale, flyDelta, flyRate, groundAxes, panFocus, schemaPose, turnLook, wheelPixels } from './fly.js'
-import { exteriorMask, nearestMeasureCorner, sameFaceTriangles, snapModelCorner, snapReference, uniqueMeasureCorner } from './olcu.js'
+import { exteriorMask, modelUnit, nearestMeasureCorner, sameFaceTriangles, snapModelCorner, snapReference, uniqueMeasureCorner } from './olcu.js'
 import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
@@ -311,16 +311,24 @@ function measureDots(record) {
   return dots
 }
 
-function measure(scene) {
+function measure(scene, unit = 1) {
   const box = new THREE.Box3().setFromObject(scene)
-  if (box.isEmpty()) return { s: 1, x: 0, y: 0, z: 0 }
-  const s = 1 / Math.max(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z, 1e-6)
+  const s = unit > 0 ? unit : 1
+  if (box.isEmpty()) return { s, x: 0, y: 0, z: 0, dx: 1, dy: 1, dz: 1 }
   return {
     s,
     x: -((box.min.x + box.max.x) / 2) * s,
     y: -box.min.y * s,
-    z: -((box.min.z + box.max.z) / 2) * s
+    z: -((box.min.z + box.max.z) / 2) * s,
+    dx: (box.max.x - box.min.x) * s,
+    dy: (box.max.y - box.min.y) * s,
+    dz: (box.max.z - box.min.z) * s
   }
+}
+
+function markSize(fit, fraction) {
+  const span = Math.max(fit?.dx || 0, fit?.dy || 0, fit?.dz || 0, 1)
+  return span * fraction / (fit?.s || 1)
 }
 
 function stripExtras(root) {
@@ -398,13 +406,13 @@ export class View {
     sun.shadow.mapSize.set(1024, 1024)
     sun.shadow.camera.near = 0.2
     sun.shadow.camera.far = 40
-    sun.shadow.camera.left = -10
-    sun.shadow.camera.right = 10
-    sun.shadow.camera.top = 10
-    sun.shadow.camera.bottom = -10
+    sun.shadow.camera.left = -100
+    sun.shadow.camera.right = 100
+    sun.shadow.camera.top = 100
+    sun.shadow.camera.bottom = -100
     this.scene.add(sun)
 
-    this.grid = new THREE.GridHelper(24, 24, 0x5c564c, 0x8a8175)
+    this.grid = new THREE.GridHelper(200, 20, 0x5c564c, 0x8a8175)
     this.grid.position.y = 0
     this.scene.add(this.grid)
 
@@ -418,7 +426,7 @@ export class View {
     this.orbit.enableDamping = false
     this.orbit.enableRotate = false
     this.orbit.minDistance = 0.18
-    this.orbit.maxDistance = 60
+    this.orbit.maxDistance = 400
     this.orbit.target.set(0, 0.4, 0)
     this.orbit.addEventListener('change', () => this.requestRender())
 
@@ -696,7 +704,7 @@ export class View {
       if (!buffer) return
       const gltf = await this.loader.parseAsync(buffer, '')
       stripExtras(gltf.scene)
-      this.models.set(model.id, { scene: gltf.scene, fit: measure(gltf.scene) })
+      this.models.set(model.id, { scene: gltf.scene, fit: measure(gltf.scene, modelUnit(model)) })
     }))
   }
 
@@ -751,8 +759,8 @@ export class View {
     align.add(visual)
     const record = this.state.models.find((item) => item.id === component.modelId)
     const ports = [...(record?.ports || []), ...(component.ports || [])]
-    for (const port of ports) align.add(this.makePort(component, port, fit.s))
-    this.addMeasureDots(align, measureDots(record), fit.s, false)
+    for (const port of ports) align.add(this.makePort(component, port, fit))
+    this.addMeasureDots(align, measureDots(record), fit, false)
     this.addMeasureEdges(align, record?.olcu?.kenar)
     this.addMeasureLine(align, record?.olcu?.cift)
     const group = new THREE.Group()
@@ -762,7 +770,7 @@ export class View {
     return group
   }
 
-  makePort(component, port, fitScale) {
+  makePort(component, port, fit) {
     const pivot = new THREE.Group()
     pivot.name = port.id
     pivot.userData.portId = port.id
@@ -772,10 +780,10 @@ export class View {
     const normal = new THREE.Vector3().fromArray(port.normal)
     if (normal.lengthSq() < 1e-8) normal.set(0, 1, 0)
     pivot.quaternion.copy(portOrientation(normal, port.roll || 0))
-    const lift = 0.0015 / fitScale
+    const lift = markSize(fit, 0.0015)
     const bulk = port.type === 'ntype' ? 1.85 : port.type === 'ag' ? 1.74 : port.type === 'sma' || port.type === 'rf' ? 0.72 : 1
-    const radius = 0.016 / fitScale * bulk
-    const height = 0.042 / fitScale * (port.type === 'ntype' ? 1.35 : port.type === 'ag' ? 1.38 : 1)
+    const radius = markSize(fit, 0.016) * bulk
+    const height = markSize(fit, 0.042) * (port.type === 'ntype' ? 1.35 : port.type === 'ag' ? 1.38 : 1)
     const kind = port.type
     if (kind === 'ag') addEthernetPort(pivot, radius, height, lift, component, port)
     else if (kind === 'sma' || kind === 'rf') addCoaxPort(pivot, radius, height, lift, component, port, true)
@@ -796,8 +804,7 @@ export class View {
   }
 
   applyPose(group, component) {
-    const scale = component.scale || 1
-    group.scale.setScalar(scale)
+    group.scale.setScalar(1)
     if (this.mode === 'sema') {
       group.position.set(component.schema.x, 0, component.schema.z)
       group.rotation.set(0, component.schema.yaw || 0, 0)
@@ -846,8 +853,8 @@ export class View {
       object.userData.kind = 'submesh'
     })
     align.add(visual)
-    for (const port of ports) align.add(this.makePort({ id: 'incele' }, port, fit.s))
-    this.addMeasureDots(align, measureDots(record), fit.s, true)
+    for (const port of ports) align.add(this.makePort({ id: 'incele' }, port, fit))
+    this.addMeasureDots(align, measureDots(record), fit, true)
     this.addMeasureEdges(align, kenar)
     this.addMeasureLine(align, cift)
     this.inspectRoot.add(align)
@@ -1604,9 +1611,9 @@ export class View {
     return this.models.get(modelId)?.fit || null
   }
 
-  addMeasureDots(align, dots, fitScale, pickable) {
+  addMeasureDots(align, dots, fit, pickable) {
     for (const dot of dots) {
-      const geometry = new THREE.SphereGeometry(0.006 / fitScale, 10, 8)
+      const geometry = new THREE.SphereGeometry(markSize(fit, 0.006), 10, 8)
       geometry.userData.owned = true
       const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: dot.color, depthTest: false }))
       mesh.position.fromArray(dot.position)
@@ -1616,7 +1623,7 @@ export class View {
       mesh.userData.olcuKey = dot.key
       align.add(mesh)
       if (!pickable) continue
-      const grip = new THREE.SphereGeometry(0.022 / fitScale, 8, 6)
+      const grip = new THREE.SphereGeometry(markSize(fit, 0.022), 8, 6)
       grip.userData.owned = true
       const hit = new THREE.Mesh(grip, new THREE.MeshBasicMaterial({ visible: false, depthTest: false }))
       hit.position.fromArray(dot.position)

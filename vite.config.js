@@ -67,7 +67,8 @@ export default defineConfig({
                 id,
                 file,
                 name: rawName.replace(/\.(glb|sldprt)$/i, ''),
-                boyut
+                boyut,
+                birim: /\.sldprt$/i.test(rawName) ? 'cm' : null
               }))
               return
             }

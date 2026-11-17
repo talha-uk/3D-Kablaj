@@ -170,22 +170,19 @@ export function writeMeasure(state, modelId, olcu, olcek) {
         ? { ...item, olcu, olcek: scale ?? item.olcek ?? null }
         : item
     )),
-    components: scale
-      ? state.components.map((item) => (item.modelId === modelId ? { ...item, scale } : item))
-      : state.components
+    components: state.components
   }
 }
 
 export function addComponent(state, modelId, name) {
   const spot = place(state.components.length)
-  const model = state.models.find((item) => item.id === modelId)
   const component = {
     id: uid(),
     name,
     modelId,
     position: [spot.x, 0, spot.z],
     yaw: 0,
-    scale: model?.olcek || 1,
+    scale: 1,
     schema: { x: spot.x, z: spot.z, yaw: 0 },
     ports: []
   }

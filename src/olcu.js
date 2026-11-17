@@ -640,11 +640,16 @@ export function pairCm(a, b, fitS, scale) {
   return fitS * (scale || 1) * distance
 }
 
+export function modelUnit(record) {
+  if (record?.birim === 'cm') return 1
+  if (record?.boyut) return 100
+  return 1
+}
+
 export function portWorld(component, fit, position) {
-  const scale = component.scale || 1
-  let x = (fit.x + fit.s * position[0]) * scale
-  let y = (fit.y + fit.s * position[1]) * scale
-  let z = (fit.z + fit.s * position[2]) * scale
+  let x = fit.x + fit.s * position[0]
+  let y = fit.y + fit.s * position[1]
+  let z = fit.z + fit.s * position[2]
   const yaw = component.yaw || 0
   const c = Math.cos(yaw)
   const s = Math.sin(yaw)
@@ -673,9 +678,6 @@ export function cableLengthCm(state, cable, fitOf) {
   const left = state.components.find((item) => item.id === cable.a.componentId)
   const right = state.components.find((item) => item.id === cable.b.componentId)
   if (!left || !right) return null
-  const leftModel = state.models.find((item) => item.id === left.modelId)
-  const rightModel = state.models.find((item) => item.id === right.modelId)
-  if (!leftModel?.olcek || !rightModel?.olcek) return null
   const leftFit = fitOf(left.modelId)
   const rightFit = fitOf(right.modelId)
   if (!leftFit || !rightFit) return null

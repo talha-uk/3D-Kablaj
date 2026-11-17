@@ -54,7 +54,7 @@ function glbFromMesh(model, name) {
       const n = normal(a, b, c)
       if (!n) continue
       for (const point of [a, b, c]) {
-        position.push(point[0], point[1], point[2])
+        position.push(point[0] * 100, point[1] * 100, point[2] * 100)
         normals.push(n[0], n[1], n[2])
       }
       triangles += 1
@@ -122,7 +122,7 @@ function glbFromMesh(model, name) {
   const bodyHeader = Buffer.alloc(8)
   bodyHeader.writeUInt32LE(padded.length, 0)
   bodyHeader.writeUInt32LE(0x004e4942, 4)
-  const boyut = [0, 1, 2].map((axis) => mmText(Math.abs(max[axis] - min[axis]) * 1000)).join(' × ') + ' mm'
+  const boyut = [0, 1, 2].map((axis) => mmText(Math.abs(max[axis] - min[axis]) * 10)).join(' × ') + ' mm'
   return { buf: Buffer.concat([header, jsonHeader, jsonBuf, bodyHeader, padded]), boyut }
 }
 

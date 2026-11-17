@@ -7,7 +7,7 @@ import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
 import { routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
 import { addCable, addComponent, addModel, addPort, cableShown, emptyState, matchCable, uid } from '../src/state.js'
-import { cableLengthCm, decimalText, exteriorMask, nearestMeasureCorner, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference, uniqueMeasureCorner } from '../src/olcu.js'
+import { cableLengthCm, decimalText, exteriorMask, modelUnit, nearestMeasureCorner, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference, uniqueMeasureCorner } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
 import fs from 'node:fs'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
@@ -462,7 +462,7 @@ check('ortak kenarlar aynı ölçeği verir', Math.abs(edgeScale - 11) < 1e-6)
 const group = new THREE.Group()
 group.position.set(1, 2, 3)
 group.rotation.y = 0.4
-group.scale.setScalar(2)
+group.scale.setScalar(1)
 const align = new THREE.Group()
 align.position.set(0.1, 0.2, 0.3)
 align.scale.setScalar(0.5)
@@ -490,8 +490,11 @@ const measured = {
   ],
   cables: [{ id: 'c', a: { componentId: 'a', portId: 'pa' }, b: { componentId: 'b', portId: 'pb' }, vias: [] }]
 }
-const length = cableLengthCm(measured, measured.cables[0], () => ({ s: fitS, x: 0, y: 0, z: 0 }))
+const length = cableLengthCm(measured, measured.cables[0], () => ({ s: 1, x: 0, y: 0, z: 0 }))
 check('kablo santimetreye oturur', length > 9 && length < 14)
+check('solid metre dosyası santime çevrilir', modelUnit({ boyut: '10 × 10 × 10 mm' }) === 100)
+check('yeni solid santim olarak durur', modelUnit({ boyut: '10 × 10 × 10 mm', birim: 'cm' }) === 1)
+check('glb olduğu gibi durur', modelUnit({ name: 'kutu' }) === 1)
 
 function unitDir(values) {
   const length = Math.hypot(...values)

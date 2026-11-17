@@ -179,17 +179,7 @@ export function mount(hooks) {
       name.value = component.name
       name.addEventListener('change', () => hooks.onRenameComponent?.(component.id, name.value.trim() || component.name))
       nameLabel.append(name)
-      const scaleLabel = document.createElement('label')
-      scaleLabel.textContent = 'Ölçek'
-      const scale = document.createElement('input')
-      scale.type = 'number'
-      scale.min = '0.1'
-      scale.max = '1000'
-      scale.step = '0.1'
-      scale.value = String(component.scale || 1)
-      scale.addEventListener('change', () => hooks.onScale?.(component.id, Number(scale.value)))
-      scaleLabel.append(scale)
-      form.append(nameLabel, scaleLabel)
+      form.append(nameLabel)
       const model = state.models.find((item) => item.id === component.modelId)
       const modelIds = new Set((model?.ports || []).map((port) => port.id))
       const ports = document.createElement('ul')
@@ -440,10 +430,10 @@ export function mount(hooks) {
     actions.className = 'olcu-cift-eylem'
     actions.append(distance, remove)
     const pairBody = [modes, actions]
-    if (fit && cift.a && cift.b && model.olcek) {
+    if (fit && cift.a && cift.b) {
       const live = document.createElement('p')
       live.className = 'olcu-aralik'
-      const now = pairCm(cift.a, cift.b, fit.s, model.olcek)
+      const now = pairCm(cift.a, cift.b, fit.s, 1)
       live.textContent = `İki nokta arası ${now.toFixed(1)} cm`
       pairBody.push(live)
     }
