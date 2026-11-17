@@ -281,6 +281,12 @@ export function routeThrough(aPos, aNormal, bPos, bNormal, via) {
   return dedupe([aPos, start, via, end, bPos])
 }
 
+export function cableRadius(type, span, schema = false) {
+  const scale = Math.max(Number(span) || 1, 1)
+  const base = (CABLE_RADIUS[type] || 0.008) * scale * 2.5
+  return schema ? base * 0.7 : base
+}
+
 export const CABLE_RADIUS = {
   sma: 0.0055,
   rf: 0.0055,

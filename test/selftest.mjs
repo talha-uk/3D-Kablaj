@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { headingFromQuaternion, portOrientation, portRoll } from '../src/yaw.js'
 import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
-import { routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
+import { cableRadius, routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
 import { addCable, addComponent, addModel, addPort, cableShown, emptyState, matchCable, uid } from '../src/state.js'
 import { cableLengthCm, decimalText, exteriorMask, modelUnit, nearestMeasureCorner, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference, uniqueMeasureCorner } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
@@ -152,6 +152,8 @@ check('yakın çekimde hız 0.8 birim', nearSpeed === 0.8)
 check('orta uzaklıkta hız korunur', Math.abs(framedSpeed - 1.4) < 0.02)
 check('hız 2.4 birimi geçmez', homeSpeed === 2.4 && farSpeed === 2.4 && flySpeed(200) === 2.4)
 check('shift de 2.4 birimde kalır', flyRate(0.12, true) > 0.8 && flyRate(0.12, true) <= 2.4 && flyRate(40, true) === 2.4)
+const board = flySpeed(22, 12)
+check('büyük modelde hız boyla artar', board > 9.6 && board <= 28.8 && flyRate(22, true, 12) <= 28.8)
 check('çentik zoomu aynı kalır', Math.abs(dollyScale(wheelPixels({ deltaY: 100, deltaMode: 0 })) - 0.95) < 1e-9)
 check('dev tekerlek tavana takılır', wheelPixels({ deltaY: 4000, deltaMode: 0 }) === 140)
 check('sıkıştırma da tavana takılır', wheelPixels({ deltaY: 200, deltaMode: 0, ctrlKey: true }) === 140)
@@ -492,6 +494,7 @@ const measured = {
 }
 const length = cableLengthCm(measured, measured.cables[0], () => ({ s: 1, x: 0, y: 0, z: 0 }))
 check('kablo santimetreye oturur', length > 9 && length < 14)
+check('kablo model boyuyla kalınlaşır', Math.abs(cableRadius('guc', 12) - 0.36) < 1e-9 && cableRadius('guc', 12) > cableRadius('guc', 1) * 8)
 check('solid metre dosyası santime çevrilir', modelUnit({ boyut: '10 × 10 × 10 mm' }) === 100)
 check('yeni solid santim olarak durur', modelUnit({ boyut: '10 × 10 × 10 mm', birim: 'cm' }) === 1)
 check('glb olduğu gibi durur', modelUnit({ name: 'kutu' }) === 1)

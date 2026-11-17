@@ -40,17 +40,19 @@ export function flyDelta(camera, input, distance, planar = false) {
 export const SPEED_MIN = 0.8
 export const SPEED_MAX = 2.4
 
-// Birim/saniye. Uzaklıkla artar, tekerlek yakınında 0.8, uzağında 2.4.
-export function flySpeed(span) {
-  const distance = Math.max(0, Number(span) || 0)
+// Birim/saniye. Hız, model boyuna göre 0.8 ile 2.4 boy/saniye arasında kalır.
+export function flySpeed(span, size = 1) {
+  const scale = Math.max(Number(size) || 1, 1)
+  const distance = Math.max(0, Number(span) || 0) / scale
   const knee = 6
   const extra = distance > knee ? 2.4 * (1 - Math.exp(-(distance - knee) / 14)) : 0
   const raw = (Math.min(distance, knee) + extra) * 0.7
-  return Math.min(SPEED_MAX, Math.max(SPEED_MIN, raw))
+  return Math.min(SPEED_MAX, Math.max(SPEED_MIN, raw)) * scale
 }
 
-export function flyRate(span, fast = false) {
-  return Math.min(SPEED_MAX, flySpeed(span) * (fast ? 2.4 : 1))
+export function flyRate(span, fast = false, size = 1) {
+  const scale = Math.max(Number(size) || 1, 1)
+  return Math.min(SPEED_MAX * scale, flySpeed(span, scale) * (fast ? 2.4 : 1))
 }
 
 // Bir çentik yaklaşık 100 piksel. Daha büyük bir olay tavana takılır.

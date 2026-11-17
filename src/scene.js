@@ -10,7 +10,7 @@ import { exteriorMask, modelUnit, nearestMeasureCorner, sameFaceTriangles, snapM
 import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
-import { CABLE_RADIUS, SCHEMA_LIFT, routeClear, routeSchema, routeVia } from './route.js'
+import { cableRadius, SCHEMA_LIFT, routeClear, routeSchema, routeVia } from './route.js'
 import { cableShown } from './state.js'
 const CABLE_COLOR = {
   sma: 0xd4af37,
@@ -298,11 +298,11 @@ const EDGE_COLOR = { en: 0xe10600, boy: 0x16a34a, derinlik: 0x2563eb }
 const CENTER_COLOR = 0xf5f5f4
 const PAIR_COLOR = 0x2f8f4e
 
-function measureDots(record) {
+function measureDots(record, solid = false) {
   const dots = []
   const kenar = record?.olcu?.kenar
-  if (Array.isArray(kenar?.merkez)) dots.push({ key: 'merkez', position: kenar.merkez, color: CENTER_COLOR })
-  for (const key of ['en', 'boy', 'derinlik']) {
+  if (!solid && Array.isArray(kenar?.merkez)) dots.push({ key: 'merkez', position: kenar.merkez, color: CENTER_COLOR })
+  if (!solid) for (const key of ['en', 'boy', 'derinlik']) {
     if (Array.isArray(kenar?.[key])) dots.push({ key, position: kenar[key], color: EDGE_COLOR[key] })
   }
   const cift = record?.olcu?.cift
@@ -549,7 +549,7 @@ export class View {
     const span = this.mode === 'sema'
       ? this.viewHalf / Math.max(this.ortho.zoom, 0.2)
       : this.perspective.position.distanceTo(this.orbit.target)
-    const step = flyRate(span, this.flyFast) * dt
+    const step = flyRate(span, this.flyFast, this.sceneSpan()) * dt
     const delta = flyDelta(camera, { forward, strafe, lift }, step, this.mode === 'sema')
     if (delta.lengthSq() < 1e-10 || !(dt > 0)) return 0
     if (this.mode === 'sema') {
@@ -559,6 +559,14 @@ export class View {
       this.orbit.target.add(delta)
     }
     return delta.length() / dt
+  }
+
+  sceneSpan() {
+    let span = 0
+    for (const record of this.models.values()) {
+      span = Math.max(span, record.fit?.dx || 0, record.fit?.dy || 0, record.fit?.dz || 0)
+    }
+    return Math.max(span, 1)
   }
 
   reportSpeed(speed) {
@@ -759,9 +767,10 @@ export class View {
     align.add(visual)
     const record = this.state.models.find((item) => item.id === component.modelId)
     const ports = [...(record?.ports || []), ...(component.ports || [])]
+    const solid = this.hooks.bicim?.() === 'solid'
     for (const port of ports) align.add(this.makePort(component, port, fit))
-    this.addMeasureDots(align, measureDots(record), fit, false)
-    this.addMeasureEdges(align, record?.olcu?.kenar)
+    this.addMeasureDots(align, measureDots(record, solid), fit, false)
+    if (!solid) this.addMeasureEdges(align, record?.olcu?.kenar)
     this.addMeasureLine(align, record?.olcu?.cift)
     const group = new THREE.Group()
     group.name = component.id
@@ -853,9 +862,10 @@ export class View {
       object.userData.kind = 'submesh'
     })
     align.add(visual)
+    const solid = this.hooks.bicim?.() === 'solid'
     for (const port of ports) align.add(this.makePort({ id: 'incele' }, port, fit))
-    this.addMeasureDots(align, measureDots(record), fit, true)
-    this.addMeasureEdges(align, kenar)
+    this.addMeasureDots(align, measureDots(record, solid), fit, true)
+    if (!solid) this.addMeasureEdges(align, kenar)
     this.addMeasureLine(align, cift)
     this.inspectRoot.add(align)
     this.indexPivots(this.inspectRoot)
@@ -893,7 +903,8 @@ export class View {
       for (const prev of lanes) {
         const dx = prev.mid[0] - mid[0]
         const dz = prev.mid[1] - mid[1]
-        if (dx * dx + dz * dz < 0.04) lane = Math.max(lane, prev.lane + 1)
+        const near = this.sceneSpan() * 0.04
+      if (dx * dx + dz * dz < near * near) lane = Math.max(lane, prev.lane + 1)
       }
       lanes.push({ mid, lane })
       frames.get(cable.id).lane = lane
@@ -917,8 +928,9 @@ export class View {
       } else {
         curve.curveType = 'centripetal'
       }
-      const radius = (CABLE_RADIUS[cable.type] || 0.008) * (this.mode === 'sema' ? 0.7 : 1)
-      const tubular = Math.max(20, Math.round(curve.getLength() * 40))
+      const span = this.sceneSpan()
+      const radius = cableRadius(cable.type, span, this.mode === 'sema')
+      const tubular = Math.max(24, Math.round(curve.getLength() * 4))
       const geometry = new THREE.TubeGeometry(curve, tubular, radius, 8, false)
       geometry.userData.owned = true
       const map = (cable.type === 'usb' ? this.dashed : this.solid).clone()
@@ -938,7 +950,7 @@ export class View {
       mesh.userData.cableId = cable.id
       this.cableRoot.add(mesh)
       this.cableMeshes.set(cable.id, mesh)
-      const pickGeometry = new THREE.TubeGeometry(curve, tubular, Math.max(radius * 4, 0.03), 6, false)
+      const pickGeometry = new THREE.TubeGeometry(curve, Math.max(12, Math.round(tubular / 2)), Math.max(radius * 2.2, span * 0.06), 5, false)
       pickGeometry.userData.owned = true
       const pick = new THREE.Mesh(pickGeometry, new THREE.MeshBasicMaterial())
       pick.visible = false
@@ -1571,7 +1583,7 @@ export class View {
         this.createMeasurePoint(hit, hedef)
         return
       }
-      if (hedef === 'merkez' || hedef === 'en' || hedef === 'boy' || hedef === 'derinlik') {
+      if (this.hooks.bicim?.() !== 'solid' && (hedef === 'merkez' || hedef === 'en' || hedef === 'boy' || hedef === 'derinlik')) {
         this.createCornerMeasure(hit, hedef)
         return
       }
@@ -1582,7 +1594,12 @@ export class View {
         }
         this.createModelPort(hit)
       }
-      if (this.tool === 'olcu') this.hooks.status?.('Sağdan merkez, kenar ucu veya mesafe belirle.')
+      if (this.tool === 'olcu') {
+        const yazi = this.hooks.bicim?.() === 'solid'
+          ? 'Sağdan mesafe ölç ile iki nokta seç.'
+          : 'Sağdan merkez, kenar ucu veya mesafe belirle.'
+        this.hooks.status?.(yazi)
+      }
       return
     }
     if (this.mode === 'incele' && hit?.kind === 'port' && this.tool !== 'kablo') {

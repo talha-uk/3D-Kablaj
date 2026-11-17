@@ -397,7 +397,7 @@ export function mount(hooks) {
       row.append(swatch, name, pick, unit)
       group.append(row)
     }
-    box.append(disclosure('olcu', 'Ölçü', merkez, autoLabel, group))
+    if (hooks.bicim?.() !== 'solid') box.append(disclosure('olcu', 'Ölçü', merkez, autoLabel, group))
     const cift = {
       a: Array.isArray(olcu.cift?.a) ? olcu.cift.a : null,
       b: Array.isArray(olcu.cift?.b) ? olcu.cift.b : null,
