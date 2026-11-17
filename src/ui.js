@@ -581,6 +581,10 @@ export function mount(hooks) {
         if (bakis[index]) bakis[index].textContent = `${angle}°`
       })
     },
+    setSpeed(text) {
+      const node = document.getElementById('hiz')
+      if (node) node.textContent = text
+    },
     status(text) {
       durum.textContent = text
     },

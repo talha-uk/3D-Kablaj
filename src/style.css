@@ -125,6 +125,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
   [role="tab"][aria-selected="true"]::after {
     border-block-end-color: Highlight;
   }
+  #hiz { color: GrayText; }
 }
 
 h1, h2, p { margin: 0; }
@@ -371,6 +372,17 @@ h2 { font-size: 0.85rem; margin-block-end: 0.4rem; }
   height: 100%;
   display: block;
   touch-action: none;
+}
+
+#hiz {
+  position: absolute;
+  inset: 0.55rem 0.75rem auto auto;
+  z-index: 1;
+  margin: 0;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  color: color-mix(in srgb, var(--muted) 48%, var(--stage));
 }
 
 #bakis {

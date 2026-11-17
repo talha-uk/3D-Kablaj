@@ -160,6 +160,7 @@ const view = new View(document.getElementById('sahne'), {
   },
   status: (text) => ui.status(text),
   onViewAngle: (angles) => ui.setAngles(angles),
+  onSpeed: (text) => ui.setSpeed(text),
   onSelect: (selection) => select(selection),
   onPort: async (port) => {
     const count = state.components.find((item) => item.id === port.componentId)?.ports.length || 0

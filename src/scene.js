@@ -525,7 +525,7 @@ export class View {
   }
 
   applyFly(dt) {
-    if (this.transform.dragging) return
+    if (this.transform.dragging) return 0
     let forward = 0
     let strafe = 0
     let lift = 0
@@ -535,7 +535,7 @@ export class View {
     if (this.flyKeys.has('KeyA') || this.flyKeys.has('ArrowLeft')) strafe -= 1
     if (this.flyKeys.has('KeyE')) lift += 1
     if (this.flyKeys.has('KeyQ')) lift -= 1
-    if (!forward && !strafe && !lift) return
+    if (!forward && !strafe && !lift) return 0
     const camera = this.activeCamera()
     camera.updateMatrixWorld(true)
     const span = this.mode === 'sema'
@@ -543,13 +543,21 @@ export class View {
       : this.perspective.position.distanceTo(this.orbit.target)
     const step = flySpeed(span) * (this.flyFast ? 2.4 : 1) * dt
     const delta = flyDelta(camera, { forward, strafe, lift }, step, this.mode === 'sema')
-    if (delta.lengthSq() < 1e-10) return
+    if (delta.lengthSq() < 1e-10 || !(dt > 0)) return 0
     if (this.mode === 'sema') {
       this.placeSchema(this.schemaFocus.x + delta.x, this.schemaFocus.z + delta.z)
     } else {
       this.perspective.position.add(delta)
       this.orbit.target.add(delta)
     }
+    return delta.length() / dt
+  }
+
+  reportSpeed(speed) {
+    const text = `${(Number.isFinite(speed) ? speed : 0).toFixed(1)} birim/s`
+    if (text === this.speedText) return
+    this.speedText = text
+    this.hooks.onSpeed?.(text)
   }
 
   syncClearColor() {
@@ -574,10 +582,9 @@ export class View {
   tick() {
     requestAnimationFrame(this.tick)
     const dt = Math.min(this.clock.getDelta(), 0.05)
-    if (this.flyKeys.size) {
-      this.applyFly(dt)
-      this.live = true
-    }
+    const speed = this.flyKeys.size ? this.applyFly(dt) : 0
+    if (speed) this.live = true
+    this.reportSpeed(speed)
     if (!this.live) return
     if (this.box) this.box.update()
     const width = this.canvas.clientWidth || 1
