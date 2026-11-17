@@ -48,9 +48,7 @@ const ui = mount({
     uiState = { ...uiState, tool, olcuHedef: keepMeasure ? uiState.olcuHedef : null }
     view.setTool(tool)
     await publish(false)
-    if (uiState.mode !== 'incele') return
-    if (tool === 'port') view.framePorts()
-    if (tool === 'olcu') view.frame()
+    if (uiState.mode === 'incele' && tool === 'olcu') view.frame()
   },
   onType: (cableType) => {
     uiState = { ...uiState, cableType }
@@ -283,7 +281,7 @@ function pinInspect() {
   if (modelId) uiState = { ...uiState, inspectId: modelId }
 }
 
-async function select(selection) {
+function select(selection) {
   pinInspect()
   const incele = uiState.mode === 'incele'
   uiState = { ...uiState, selection }
@@ -292,10 +290,7 @@ async function select(selection) {
     view.setTool('tasi')
   }
   view.setSelection(uiState.selection)
-  await publish(false)
-  if (incele && selection?.kind === 'port' && selection.componentId === 'incele') {
-    view.framePort(selection.componentId, selection.portId)
-  }
+  publish(false)
 }
 
 function commit(next, message) {

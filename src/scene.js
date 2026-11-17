@@ -6,7 +6,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { clone as cloneObject } from 'three/addons/utils/SkeletonUtils.js'
 import { focusFor } from './focus.js'
 import { SCHEMA_TILT, aimAhead, axisAngles, cameraPlacement, flyDelta, groundAxes, panFocus, schemaPose, turnLook } from './fly.js'
-import { snapEdgeCorner, snapModelCorner, snapReference } from './olcu.js'
+import { pairCm, snapEdgeCorner, snapModelCorner, snapReference } from './olcu.js'
 import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
@@ -294,16 +294,50 @@ function jacketTexture(dashed) {
   return texture
 }
 
+const EDGE_COLOR = { en: 0xe10600, boy: 0x16a34a, derinlik: 0x2563eb }
+const CENTER_COLOR = 0xf5f5f4
+const PAIR_COLOR = 0x2f8f4e
+
 function measureDots(record) {
   const dots = []
   const kenar = record?.olcu?.kenar
-  for (const key of ['merkez', 'en', 'boy', 'derinlik']) {
-    if (Array.isArray(kenar?.[key])) dots.push(kenar[key])
+  if (Array.isArray(kenar?.merkez)) dots.push({ position: kenar.merkez, color: CENTER_COLOR })
+  for (const key of ['en', 'boy', 'derinlik']) {
+    if (Array.isArray(kenar?.[key])) dots.push({ position: kenar[key], color: EDGE_COLOR[key] })
   }
   const cift = record?.olcu?.cift
-  if (Array.isArray(cift?.a)) dots.push(cift.a)
-  if (Array.isArray(cift?.b)) dots.push(cift.b)
+  if (Array.isArray(cift?.a)) dots.push({ position: cift.a, color: PAIR_COLOR })
+  if (Array.isArray(cift?.b)) dots.push({ position: cift.b, color: PAIR_COLOR })
   return dots
+}
+
+function pairLabel(record, fitS) {
+  const cift = record?.olcu?.cift
+  if (!Array.isArray(cift?.a) || !Array.isArray(cift?.b) || !(fitS > 0) || !(record?.olcek > 0)) return ''
+  const cm = pairCm(cift.a, cift.b, fitS, record.olcek)
+  return Number.isFinite(cm) ? `${cm.toFixed(1)} cm` : ''
+}
+
+function measureSprite(text) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 320
+  canvas.height = 80
+  const context = canvas.getContext('2d')
+  context.fillStyle = 'rgba(255, 253, 248, 0.94)'
+  context.fillRect(0, 0, 320, 80)
+  context.fillStyle = '#14532d'
+  context.font = 'bold 44px sans-serif'
+  context.textAlign = 'center'
+  context.textBaseline = 'middle'
+  context.fillText(text, 160, 42)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  const material = new THREE.SpriteMaterial({ map: texture, depthTest: false })
+  material.userData.ownedMap = true
+  const sprite = new THREE.Sprite(material)
+  sprite.raycast = () => {}
+  sprite.userData.kind = 'olcu-cizgi'
+  return sprite
 }
 
 function measure(scene) {
@@ -694,7 +728,7 @@ export class View {
     this.pivots.clear()
     for (const component of this.state.components) {
       const record = this.state.models.find((item) => item.id === component.modelId)
-      const signature = `${component.modelId}:${JSON.stringify(record?.ports || [])}:${JSON.stringify(record?.olcu?.kenar || null)}:${JSON.stringify(record?.olcu?.cift || null)}:${JSON.stringify(component.ports)}`
+      const signature = `${component.modelId}:${JSON.stringify(record?.ports || [])}:${JSON.stringify(record?.olcu?.kenar || null)}:${JSON.stringify(record?.olcu?.cift || null)}:${record?.olcek ?? ''}:${JSON.stringify(component.ports)}`
       let group = this.groups.get(component.id)
       if (!group || group.userData.signature !== signature) {
         if (group) {
@@ -736,7 +770,7 @@ export class View {
     for (const port of ports) align.add(this.makePort(component, port, fit.s))
     this.addMeasureDots(align, measureDots(record), fit.s)
     this.addMeasureEdges(align, record?.olcu?.kenar)
-    this.addMeasureLine(align, record?.olcu?.cift)
+    this.addMeasureLine(align, record?.olcu?.cift, pairLabel(record, fit.s), fit.s)
     const group = new THREE.Group()
     group.name = component.id
     group.userData.componentId = component.id
@@ -799,7 +833,7 @@ export class View {
     const ports = record?.ports || []
     const kenar = record?.olcu?.kenar || null
     const cift = record?.olcu?.cift || null
-    const signature = `${modelId}:${JSON.stringify(ports)}:${JSON.stringify(kenar)}:${JSON.stringify(cift)}`
+    const signature = `${modelId}:${JSON.stringify(ports)}:${JSON.stringify(kenar)}:${JSON.stringify(cift)}:${record?.olcek ?? ''}`
     if (!model) {
       if (this.inspectRoot.userData.signature !== '') {
         this.clearGroup(this.inspectRoot)
@@ -831,7 +865,7 @@ export class View {
     for (const port of ports) align.add(this.makePort({ id: 'incele' }, port, fit.s))
     this.addMeasureDots(align, measureDots(record), fit.s)
     this.addMeasureEdges(align, kenar)
-    this.addMeasureLine(align, cift)
+    this.addMeasureLine(align, cift, pairLabel(record, fit.s), fit.s)
     this.inspectRoot.add(align)
     this.indexPivots(this.inspectRoot)
     if (!keepCamera) this.frameObject(this.inspectRoot)
@@ -1147,51 +1181,6 @@ export class View {
     this.perspective.position.set(center.x + radius * 0.75, center.y + radius * 0.55, center.z + radius)
     this.perspective.lookAt(center)
     this.orbit.update()
-  }
-
-  framePorts() {
-    const modelId = this.hooks.inspectModelId?.() || ''
-    const ports = this.state?.models.find((item) => item.id === modelId)?.ports || []
-    const points = []
-    const normal = new THREE.Vector3()
-    for (const port of ports) {
-      const framed = this.portFrame('incele', port.id)
-      if (!framed) continue
-      points.push(new THREE.Vector3().fromArray(framed.position))
-      normal.add(new THREE.Vector3().fromArray(framed.normal))
-    }
-    if (!points.length) {
-      this.hooks.status?.('Yüzeye tıklayıp port türünü seç.')
-      this.requestRender()
-      return
-    }
-    const box = new THREE.Box3().setFromPoints(points)
-    const center = box.getCenter(new THREE.Vector3())
-    const size = box.getSize(new THREE.Vector3())
-    const radius = Math.max(size.x, size.y, size.z, 0.35) * 1.8
-    if (normal.lengthSq() < 1e-8) normal.set(0.6, 0.45, 1)
-    normal.normalize()
-    this.orbit.target.copy(center)
-    this.perspective.up.set(0, 1, 0)
-    this.perspective.position.copy(center).addScaledVector(normal, radius)
-    this.perspective.lookAt(center)
-    this.orbit.update()
-    this.requestRender()
-  }
-
-  framePort(componentId, portId) {
-    const framed = this.portFrame(componentId, portId)
-    if (!framed) return
-    const position = new THREE.Vector3().fromArray(framed.position)
-    const normal = new THREE.Vector3().fromArray(framed.normal)
-    if (normal.lengthSq() < 1e-8) normal.set(0, 0, 1)
-    normal.normalize()
-    this.orbit.target.copy(position)
-    this.perspective.up.set(0, 1, 0)
-    this.perspective.position.copy(position).addScaledVector(normal, 0.42)
-    this.perspective.lookAt(position)
-    this.orbit.update()
-    this.requestRender()
   }
 
   placeSchema(x, z) {
@@ -1597,12 +1586,12 @@ export class View {
     return this.models.get(modelId)?.fit || null
   }
 
-  addMeasureDots(align, positions, fitScale) {
-    for (const position of positions) {
+  addMeasureDots(align, dots, fitScale) {
+    for (const dot of dots) {
       const geometry = new THREE.SphereGeometry(0.006 / fitScale, 10, 8)
       geometry.userData.owned = true
-      const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0xe10600, depthTest: false }))
-      mesh.position.fromArray(position)
+      const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: dot.color, depthTest: false }))
+      mesh.position.fromArray(dot.position)
       mesh.renderOrder = 10
       mesh.raycast = () => {}
       mesh.userData.kind = 'olcu'
@@ -1612,32 +1601,42 @@ export class View {
 
   addMeasureEdges(align, kenar) {
     if (!Array.isArray(kenar?.merkez)) return
-    const points = []
-    for (const end of [kenar.en, kenar.boy, kenar.derinlik]) {
+    for (const key of ['en', 'boy', 'derinlik']) {
+      const end = kenar[key]
       if (!Array.isArray(end)) continue
-      points.push(new THREE.Vector3().fromArray(kenar.merkez), new THREE.Vector3().fromArray(end))
+      const geometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3().fromArray(kenar.merkez),
+        new THREE.Vector3().fromArray(end)
+      ])
+      geometry.userData.owned = true
+      const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: EDGE_COLOR[key] }))
+      line.userData.kind = 'olcu-cizgi'
+      line.raycast = () => {}
+      align.add(line)
     }
-    if (!points.length) return
-    const geometry = new THREE.BufferGeometry().setFromPoints(points)
-    geometry.userData.owned = true
-    const line = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0xe10600 }))
-    line.userData.kind = 'olcu-cizgi'
-    line.raycast = () => {}
-    align.add(line)
   }
 
-  addMeasureLine(align, cift) {
+  addMeasureLine(align, cift, label, fitScale) {
     if (!Array.isArray(cift?.a) || !Array.isArray(cift?.b)) return
     const geometry = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3().fromArray(cift.a),
       new THREE.Vector3().fromArray(cift.b)
     ])
     geometry.userData.owned = true
-    const material = new THREE.LineBasicMaterial({ color: cift.color || '#2f8f4e' })
-    const line = new THREE.Line(geometry, material)
+    const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: PAIR_COLOR }))
     line.userData.kind = 'olcu-cizgi'
     line.raycast = () => {}
     align.add(line)
+    if (!label) return
+    const sprite = measureSprite(label)
+    sprite.position.set(
+      (cift.a[0] + cift.b[0]) / 2,
+      (cift.a[1] + cift.b[1]) / 2,
+      (cift.a[2] + cift.b[2]) / 2
+    )
+    sprite.scale.set(0.28 / fitScale, 0.07 / fitScale, 1)
+    sprite.renderOrder = 11
+    align.add(sprite)
   }
 
   meshTriangles(mesh, inverse) {
@@ -2002,6 +2001,11 @@ export class View {
 
   disposeMaterials(root) {
     root.traverse((object) => {
+      if (object.isSprite) {
+        if (object.material?.userData.ownedMap) object.material.map?.dispose()
+        object.material?.dispose()
+        return
+      }
       if (!object.isMesh && !object.isLine) return
       if (object.geometry?.userData.owned) object.geometry.dispose()
       const materials = Array.isArray(object.material) ? object.material : [object.material]

@@ -8,7 +8,7 @@ const HINT = {
   dondur: 'Modeli yeşil halkadan çevir. Port seçiliyken portu tutup çevirirsin, halka portu gömmez.',
   port: 'Yerleşimde veya incelede yüzeye tıkla. RF SMA, RF N, USB 2.0, USB 3.0, USB Type-C, Ethernet veya Güç.',
   kablo: 'Önce bir port, sonra öteki. Aynı tür bağlanır. SMA–N, Ethernet–Type-C ve USB ara kablosu da olur.',
-  olcu: 'Sağdan merkez, kenar ucu veya mesafe belirle. İşaretler kırmızı ve küçük durur.'
+  olcu: 'En kırmızı, boy yeşil, derinlik mavi. Mesafe ölç iki noktayı yeşil çizer.'
 }
 
 function button(label, onClick) {
@@ -437,7 +437,6 @@ export function mount(hooks) {
   function measurePanel(state, ui, model) {
     const olcu = measureOf(model)
     const fit = hooks.fitOf?.(model.id)
-    const scale = model.olcek || 1
     const box = document.createElement('div')
     box.className = 'alan-form'
     const title = document.createElement('h2')
@@ -480,7 +479,7 @@ export function mount(hooks) {
     pairTitle.textContent = 'İki nokta'
     const pairNote = document.createElement('p')
     pairNote.className = 'not'
-    pairNote.textContent = 'Köşe, kenar veya yüzey seç. İki nokta aynı yüzde ve aynı yükseklikte olur.'
+    pairNote.textContent = 'Kural: iki nokta aynı yüzde ve aynı yükseklikte olur. Birinci nokta yüzü ve yüksekliği kilitler. Köşe, kenar veya yüzey bu kilit içinde yapışır. Çizgi yeşildir.'
     const cift = {
       a: Array.isArray(olcu.cift?.a) ? olcu.cift.a : null,
       b: Array.isArray(olcu.cift?.b) ? olcu.cift.b : null,
@@ -499,38 +498,29 @@ export function mount(hooks) {
       item.setAttribute('aria-pressed', cift.snap === id ? 'true' : 'false')
       modes.append(item)
     }
-    const distance = button('Mesafe belirle', () => hooks.onOlcuHedef?.('mesafe'))
+    const distance = button('Mesafe ölç', () => hooks.onOlcuHedef?.('mesafe'))
     distance.setAttribute('aria-pressed', ui.olcuHedef === 'a' || ui.olcuHedef === 'b' ? 'true' : 'false')
-    const colorLabel = document.createElement('label')
-    colorLabel.htmlFor = 'olcu-cizgi'
-    colorLabel.textContent = 'Çizgi rengi'
-    const color = document.createElement('input')
-    color.id = 'olcu-cizgi'
-    color.type = 'color'
-    color.value = cift.color
-    color.addEventListener('change', () => {
-      hooks.onOlcuPair?.(model.id, { ...olcu, cift: { ...cift, color: color.value } })
-    })
-    colorLabel.append(color)
+    const live = document.createElement('p')
+    if (fit && cift.a && cift.b && model.olcek) {
+      const now = pairCm(cift.a, cift.b, fit.s, model.olcek)
+      live.textContent = `İki nokta arası ${now.toFixed(1)} cm`
+    } else if (cift.a && cift.b) {
+      live.className = 'not'
+      live.textContent = 'İki nokta seçildi. Santimetre için gerçek boyu yaz.'
+    } else {
+      live.className = 'not'
+      live.textContent = 'Mesafe ölç ile iki noktayı seç.'
+    }
     box.append(
       pairTitle,
       pairNote,
       modes,
       distance,
-      colorLabel,
+      live,
       cmInput('Mesafe (cm)', cift.cm, (cm) => {
-        hooks.onOlcuPair?.(model.id, { ...olcu, cift: { ...cift, cm } })
+        hooks.onOlcuPair?.(model.id, { ...olcu, cift: { ...cift, color: '#2f8f4e', cm } })
       }, 'olcu-mesafe')
     )
-    if (fit && cift.a && cift.b) {
-      const live = document.createElement('p')
-      live.className = 'not'
-      const now = pairCm(cift.a, cift.b, fit.s, scale)
-      live.textContent = cift.cm
-        ? `Referans ${cift.cm} cm. Aralık şimdi ${now.toFixed(1)} cm.`
-        : `Aralık şimdi ${now.toFixed(1)} cm. Altına santimetreyi yaz.`
-      box.append(live)
-    }
     const cables = document.createElement('h2')
     cables.textContent = 'Kablo boyu'
     box.append(cables)
