@@ -27,11 +27,6 @@ function ask(dialog, prepare) {
 
 export function mount(hooks) {
   const tabs = bindTabs(document.getElementById('gorunum-sekme'), hooks.onMode)
-  const bicimTabs = bindTabs(document.getElementById('bicim-sekme'), (bicim) => {
-    dosya.accept = bicimKaydi(bicim).accept
-    dosya.value = ''
-    hooks.onBicim?.(bicim)
-  }, { key: 'bicim', panel: false })
   bindToolbar(document.querySelector('[role="toolbar"]'))
   const durum = document.getElementById('durum')
   const bos = document.getElementById('bos')
@@ -43,6 +38,34 @@ export function mount(hooks) {
   const jsonDosya = document.getElementById('json-dosya')
   const kutuphane = document.getElementById('kutuphane')
   const ekran = document.getElementById('ekran')
+
+  const mod = document.getElementById('mod')
+  const modAc = document.getElementById('mod-ac')
+  modAc.addEventListener('click', () => {
+    const gecerli = hooks.bicim?.() || 'glb'
+    for (const item of mod.querySelectorAll('[data-bicim]')) {
+      const on = item.dataset.bicim === gecerli
+      item.setAttribute('aria-pressed', on ? 'true' : 'false')
+      item.toggleAttribute('autofocus', on)
+    }
+    if (!('commandForElement' in HTMLButtonElement.prototype) && !mod.open) mod.showModal()
+  })
+  mod.addEventListener('close', () => {
+    const bicim = mod.returnValue
+    mod.returnValue = ''
+    if (bicim === 'glb' || bicim === 'solid') hooks.onBicim?.(bicim)
+  })
+  if (!('closedBy' in HTMLDialogElement.prototype)) {
+    const outside = (event, dialog) => {
+      const rect = dialog.getBoundingClientRect()
+      return event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom
+    }
+    let pressedOutside = false
+    mod.addEventListener('pointerdown', (event) => { pressedOutside = outside(event, mod) })
+    mod.addEventListener('pointerup', (event) => {
+      if (pressedOutside && outside(event, mod)) mod.close()
+    })
+  }
 
   document.getElementById('yukle').addEventListener('click', () => dosya.click())
   dosya.addEventListener('change', () => {
@@ -121,9 +144,7 @@ export function mount(hooks) {
       }
     }
     tabs.setMode(ui.mode)
-    const bicim = bicimKaydi(ui.bicim)
-    bicimTabs.setMode(ui.bicim || 'glb')
-    dosya.accept = bicim.accept
+    dosya.accept = bicimKaydi(ui.bicim).accept
 
     const showEmpty = ui.mode === 'incele' ? !ui.inspectId : state.components.length === 0
     bos.hidden = !showEmpty
@@ -601,6 +622,9 @@ export function mount(hooks) {
         input.value = value
         input.select()
       }).then((value) => (value === 'ok' ? dialog.querySelector('input').value.trim() : null))
+    },
+    kayitSor() {
+      return ask(document.getElementById('mod-kayit'), () => {})
     },
     confirm(title, text, ok) {
       const dialog = document.getElementById('onay')

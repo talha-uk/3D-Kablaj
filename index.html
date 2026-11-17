@@ -17,10 +17,7 @@
         <button type="button" role="tab" id="tab-yerlesim" data-mode="yerlesim" aria-selected="true" focusgroupstart>Yerleşim</button>
         <button type="button" role="tab" id="tab-sema" data-mode="sema" aria-selected="false">Şema</button>
       </div>
-      <div class="sekme" id="bicim-sekme" focusgroup="tablist nomemory" role="tablist" aria-label="Dosya biçimi">
-        <button type="button" role="tab" id="tab-glb" data-bicim="glb" aria-selected="true" focusgroupstart>GLB .glb</button>
-        <button type="button" role="tab" id="tab-solid" data-bicim="solid" aria-selected="false">Solid .sldprt</button>
-      </div>
+      <button type="button" id="mod-ac" command="show-modal" commandfor="mod">Mod</button>
       <label class="ad">Proje
         <input id="proje-ad" type="text" value="Adsız düzenek" autocomplete="off">
       </label>
@@ -90,6 +87,28 @@
       <div class="satir">
         <button value="ok">Tamam</button>
         <button value="cancel">Vazgeç</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="mod" aria-labelledby="mod-baslik" closedby="any">
+    <form method="dialog">
+      <h2 id="mod-baslik">Mod</h2>
+      <p>Seçilen uzantı yeni bir proje açar. Sahne ve modeller sıfırlanır.</p>
+      <div class="mod-liste">
+        <button type="submit" value="glb" data-bicim="glb" aria-pressed="true">GLB <span>.glb</span></button>
+        <button type="submit" value="solid" data-bicim="solid" aria-pressed="false">Solid <span>.sldprt</span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="mod-kayit" aria-labelledby="mod-kayit-baslik">
+    <form method="dialog">
+      <h2 id="mod-kayit-baslik">Proje kayıtlı değil</h2>
+      <p>Mod değişince bu proje kapanır. Kaydet, projeyi dosya olarak indirir. İptal, kaydetmeden modu değiştirir.</p>
+      <div class="satir">
+        <button value="cancel">İptal</button>
+        <button value="ok" autofocus>Kaydet</button>
       </div>
     </form>
   </dialog>
