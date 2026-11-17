@@ -547,6 +547,8 @@ export class View {
     this.groups = new Map()
     this.pivots = new Map()
     this.cableMeshes = new Map()
+    this.plugGroups = new Map()
+    this.plugShift = new Map()
     this.bend = null
     this.down = null
     this.pan = null
@@ -651,10 +653,16 @@ export class View {
     }, true)
     this.transform.addEventListener('dragging-changed', (event) => {
       this.orbit.enabled = !event.value && this.mode !== 'sema'
-      if (event.value) this.hooks.onPoseStart?.()
-      else this.commitPose()
+      const plug = this.transform.object?.userData.kind === 'plug'
+      if (event.value) {
+        if (!plug) this.hooks.onPoseStart?.()
+      } else this.commitPose()
     })
     this.transform.addEventListener('objectChange', () => {
+      if (this.transform.object?.userData.kind === 'plug') {
+        this.requestRender()
+        return
+      }
       this.softenTransform()
       this.syncCables()
       this.requestRender()
@@ -1098,8 +1106,8 @@ export class View {
     const laid = []
     for (const cable of visible) {
       const frame = frames.get(cable.id)
-      const a = frame?.a
-      const b = frame?.b
+      const a = this.plugFrame(frame?.a, cable.id, 'a')
+      const b = this.plugFrame(frame?.b, cable.id, 'b')
       if (!a || !b) continue
       const typeA = portTypeOf(this.state, cable.a.componentId, cable.a.portId) || cable.type
       const typeB = portTypeOf(this.state, cable.b.componentId, cable.b.portId) || cable.type
@@ -1113,8 +1121,8 @@ export class View {
         : plain
       if (!points) continue
       laid.push(points)
-      this.addCableEnd(a, typeA, cable.id)
-      this.addCableEnd(b, typeB, cable.id)
+      this.addCableEnd(frame.a, typeA, cable.id, 'a')
+      this.addCableEnd(frame.b, typeB, cable.id, 'b')
       const line = points
       const curve = new THREE.CatmullRomCurve3(line.map((point) => new THREE.Vector3().fromArray(point)))
       if (this.mode === 'sema') {
@@ -1239,15 +1247,35 @@ export class View {
     })
   }
 
-  addCableEnd(frame, type, cableId) {
+  plugFrame(frame, cableId, end) {
+    const shift = this.plugShift.get(`${cableId}:${end}`)
+    if (!frame || !shift) return frame
+    return {
+      position: [frame.position[0] + shift.x, frame.position[1] + shift.y, frame.position[2] + shift.z],
+      normal: frame.normal
+    }
+  }
+
+  addCableEnd(frame, type, cableId, end) {
     const group = new THREE.Group()
-    group.position.fromArray(frame.position)
+    const home = new THREE.Vector3().fromArray(frame.position)
+    group.position.copy(home)
+    const shift = this.plugShift.get(`${cableId}:${end}`)
+    if (shift) group.position.add(shift)
     group.quaternion.copy(portOrientation(new THREE.Vector3().fromArray(frame.normal), 0))
-    group.userData.kind = 'cable'
+    group.userData.kind = 'plug'
+    group.userData.end = end
     group.userData.cableId = cableId
-    const reach = addCablePlug(group, type, cableId)
+    group.userData.home = home
+    addCablePlug(group, type, cableId)
+    group.traverse((object) => {
+      if (!object.isMesh) return
+      object.userData.kind = 'plug'
+      object.userData.end = end
+      object.userData.cableId = cableId
+    })
+    this.plugGroups.set(`${cableId}:${end}`, group)
     this.cableRoot.add(group)
-    return reach
   }
 
   clearCables() {
@@ -1265,6 +1293,7 @@ export class View {
       child.removeFromParent()
     }
     this.cableMeshes.clear()
+    this.plugGroups.clear()
     for (const child of [...this.bendRoot.children]) {
       if (child.geometry?.userData.owned) child.geometry.dispose()
       if (child.material) child.material.dispose()
@@ -1286,6 +1315,9 @@ export class View {
         }
       }
     }
+    if (this.selection?.kind === 'plug') {
+      group = this.plugGroups.get(`${this.selection.cableId}:${this.selection.end}`) || null
+    }
     const rotate = this.tool === 'dondur'
     const portAxes = Boolean(group)
       && this.selection?.kind === 'port'
@@ -1293,7 +1325,9 @@ export class View {
       && this.tool !== 'kablo'
       && this.tool !== 'olcu'
       && !rotate
-    const editing = portAxes || (Boolean(group) && this.selection?.kind !== 'port' && this.tool !== 'kablo' && this.tool !== 'port' && this.tool !== 'olcu')
+    const plugAxes = Boolean(group) && this.selection?.kind === 'plug' && this.mode !== 'incele'
+    const freeAxes = portAxes || plugAxes
+    const editing = freeAxes || (Boolean(group) && this.selection?.kind !== 'port' && this.selection?.kind !== 'plug' && this.tool !== 'kablo' && this.tool !== 'port' && this.tool !== 'olcu')
     if (!editing) {
       this.transform.detach()
       this.setBox(group && this.mode !== 'incele' && this.selection?.kind !== 'port' ? group : null)
@@ -1301,15 +1335,15 @@ export class View {
     }
     this.transform.camera = this.activeCamera()
     this.transform.setMode(rotate ? 'rotate' : 'translate')
-    this.transform.setSize(portAxes ? 1.15 : rotate ? 2.4 : 1.6)
-    this.transform.space = portAxes || rotate ? 'local' : 'world'
+    this.transform.setSize(freeAxes ? 1.15 : rotate ? 2.4 : 1.6)
+    this.transform.space = freeAxes || rotate ? 'local' : 'world'
     const schema = this.mode === 'sema'
-    this.transform.showX = portAxes || !rotate
-    this.transform.showY = portAxes || rotate || !schema
-    this.transform.showZ = portAxes || !rotate
-    this.transform.showXY = !portAxes && !schema && !rotate
-    this.transform.showYZ = !portAxes && !schema && !rotate
-    this.transform.showXZ = !portAxes && !schema && !rotate
+    this.transform.showX = freeAxes || !rotate
+    this.transform.showY = freeAxes || rotate || !schema
+    this.transform.showZ = freeAxes || !rotate
+    this.transform.showXY = !freeAxes && !schema && !rotate
+    this.transform.showYZ = !freeAxes && !schema && !rotate
+    this.transform.showXZ = !freeAxes && !schema && !rotate
     this.transform.showE = false
     this.transform.showXYZE = false
     if (rotate) {
@@ -1707,6 +1741,7 @@ export class View {
   softenTransform() {
     const object = this.transform.object
     if (!object) return
+    if (object.userData.kind === 'plug') return
     if (object.userData.pivot && this.transform.mode === 'translate') return
     if (this.transform.mode === 'rotate') {
       if (object.userData.pivot) {
@@ -1836,6 +1871,11 @@ export class View {
     }
     if (!hit) {
       this.hooks.onSelect?.(null)
+      return
+    }
+    if (hit.kind === 'plug') {
+      this.hooks.onSelect?.({ kind: 'plug', cableId: hit.cableId, end: hit.end })
+      this.hooks.status?.('Kablo ucu yalnızca görünüm için oynar. Bağlantı değişmez.')
       return
     }
     if (hit.kind === 'cable' || hit.kind === 'bend') {
@@ -2311,6 +2351,14 @@ export class View {
   commitPose(target) {
     const group = target || this.transform.object
     if (!group) return
+    if (group.userData.kind === 'plug') {
+      const home = group.userData.home
+      if (home) this.plugShift.set(`${group.userData.cableId}:${group.userData.end}`, group.position.clone().sub(home))
+      this.syncCables()
+      this.syncGizmo()
+      this.requestRender()
+      return
+    }
     if (group.userData.pivot) {
       const normal = new THREE.Vector3(0, 1, 0).applyQuaternion(group.quaternion).normalize()
       const roll = portRoll(group.quaternion, normal)
