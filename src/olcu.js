@@ -96,7 +96,7 @@ export function placeMeasurePoint(olcu, point) {
   return next
 }
 
-// Düzlemde merkezden farklı tek bir köşe varsa o konumdur.
+// Kendi ekseninde merkezden farklı tek bir köşe varsa o konumdur.
 export function uniqueMeasureCorner(triangles, anchor, hedef) {
   if (!anchor || !triangles?.length) return null
   const corners = cornerVertices(cornerGraph(triangles))
@@ -110,11 +110,11 @@ export function uniqueMeasureCorner(triangles, anchor, hedef) {
   }
   const span = Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) || 1
   const eps = Math.max(span * 1e-4, 1e-6)
-  const lock = hedef === 'en' ? 1 : hedef === 'boy' ? 2 : 0
+  const locks = hedef === 'en' ? [1, 2] : hedef === 'boy' ? [0, 2] : [0, 1]
   const seen = new Set()
   const found = []
   for (const corner of corners) {
-    if (Math.abs(corner[lock] - anchor[lock]) > eps) continue
+    if (locks.some((axis) => Math.abs(corner[axis] - anchor[axis]) > eps)) continue
     if (Math.hypot(corner[0] - anchor[0], corner[1] - anchor[1], corner[2] - anchor[2]) <= eps) continue
     const key = vertexKey(corner)
     if (seen.has(key)) continue
@@ -128,9 +128,16 @@ export function uniqueMeasureCorner(triangles, anchor, hedef) {
 function measurePlane(position, anchor, hedef) {
   const next = [position[0], position[1], position[2]]
   if (!anchor) return next
-  if (hedef === 'en') next[1] = anchor[1]
-  else if (hedef === 'boy') next[2] = anchor[2]
-  else if (hedef === 'derinlik') next[0] = anchor[0]
+  if (hedef === 'en') {
+    next[1] = anchor[1]
+    next[2] = anchor[2]
+  } else if (hedef === 'boy') {
+    next[0] = anchor[0]
+    next[2] = anchor[2]
+  } else if (hedef === 'derinlik') {
+    next[0] = anchor[0]
+    next[1] = anchor[1]
+  }
   return next
 }
 

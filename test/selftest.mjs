@@ -343,16 +343,16 @@ const held = {
 const heldStill = placeMeasurePoint(held, { hedef: 'merkez', position: [0, 0, 0], drag: true })
 check('aynı merkezde en durur', heldStill.kenar.en && heldStill.kenar.en[0] === 2 && heldStill.kenar.en[1] === 0)
 const jumped = placeMeasurePoint(held, { hedef: 'merkez', position: [0, 2, 1], drag: true })
-check('merkez kayınca en yatayda kalır', jumped.kenar.en[0] === 2 && jumped.kenar.en[1] === 2 && jumped.kenar.en[2] === 0)
+check('merkez kayınca en kendi ekseninde kalır', jumped.kenar.en[0] === 2 && jumped.kenar.en[1] === 2 && jumped.kenar.en[2] === 1)
 const enPoint = placeMeasurePoint(held, { hedef: 'en', position: [5, 9, 3] })
-check('en yatay düzlemde', enPoint.kenar.en[0] === 5 && enPoint.kenar.en[1] === 0 && enPoint.kenar.en[2] === 3)
+check('en derinlik eksenine kaymaz', enPoint.kenar.en[0] === 5 && enPoint.kenar.en[1] === 0 && enPoint.kenar.en[2] === 0)
 const boyPoint = placeMeasurePoint(held, { hedef: 'boy', position: [5, 9, 3] })
-check('boy ön düzlemde', boyPoint.kenar.boy[0] === 5 && boyPoint.kenar.boy[1] === 9 && boyPoint.kenar.boy[2] === 0)
+check('boy en eksenine kaymaz', boyPoint.kenar.boy[0] === 0 && boyPoint.kenar.boy[1] === 9 && boyPoint.kenar.boy[2] === 0)
 const depthPoint = placeMeasurePoint(held, { hedef: 'derinlik', position: [5, 9, 3] })
-check('derinlik yan düzlemde', depthPoint.kenar.derinlik[0] === 0 && depthPoint.kenar.derinlik[1] === 9 && depthPoint.kenar.derinlik[2] === 3)
-const autoFace = [[[0, 0, 0], [2, 0, 1], [0, 1, 0]]]
+check('derinlik boy eksenine kaymaz', depthPoint.kenar.derinlik[0] === 0 && depthPoint.kenar.derinlik[1] === 0 && depthPoint.kenar.derinlik[2] === 3)
+const autoFace = [[[0, 0, 0], [2, 0, 0], [0, 1, 0]]]
 const autoEn = uniqueMeasureCorner(autoFace, [0, 0, 0], 'en')
-check('tek en köşesi otomatik', autoEn && autoEn[0] === 2 && autoEn[1] === 0 && autoEn[2] === 1)
+check('tek en köşesi otomatik', autoEn && autoEn[0] === 2 && autoEn[1] === 0 && autoEn[2] === 0)
 const manyEn = uniqueMeasureCorner([
   [[0, 0, 0], [2, 0, 1], [0, 1, 0]],
   [[0, 0, 0], [2, 0, 1], [1, 0, 2]]
