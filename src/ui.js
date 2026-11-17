@@ -442,20 +442,53 @@ export function mount(hooks) {
       item.setAttribute('aria-pressed', ui.olcuHedef === hedef ? 'true' : 'false')
       return item
     }
+    const merkez = document.createElement('div')
+    merkez.className = 'olcu-satir olcu-merkez'
+    const merkezRenk = document.createElement('span')
+    merkezRenk.className = 'olcu-renk'
+    merkezRenk.style.background = '#f5f5f4'
+    merkezRenk.setAttribute('aria-hidden', 'true')
+    const merkezAd = document.createElement('span')
+    merkezAd.textContent = 'Merkez'
+    const merkezBtn = hedefButton('merkez', 'Nokta')
+    merkezBtn.setAttribute('aria-label', 'Merkez belirle')
+    merkez.append(merkezRenk, merkezAd, merkezBtn)
     const axes = [
-      ['en', 'En', 'olcu-en'],
-      ['boy', 'Boy', 'olcu-boy'],
-      ['derinlik', 'Derinlik', 'olcu-derinlik']
+      ['en', 'En', 'olcu-en', '#e10600'],
+      ['boy', 'Boy', 'olcu-boy', '#16a34a'],
+      ['derinlik', 'Derinlik', 'olcu-derinlik', '#2563eb']
     ]
     const group = document.createElement('div')
     group.className = 'eksenler'
-    for (const [key, label, id] of axes) {
-      group.append(
-        hedefButton(key, `${label} noktası`),
-        cmInput(`${label} (cm)`, olcu[key], (value) => save({ [key]: value }), id)
-      )
+    group.setAttribute('role', 'group')
+    group.setAttribute('aria-label', 'En, boy ve derinlik')
+    for (const [key, label, id, color] of axes) {
+      const row = document.createElement('div')
+      row.className = 'olcu-satir'
+      const swatch = document.createElement('span')
+      swatch.className = 'olcu-renk'
+      swatch.style.background = color
+      swatch.setAttribute('aria-hidden', 'true')
+      const name = document.createElement('label')
+      name.htmlFor = id
+      name.textContent = label
+      const pick = hedefButton(key, 'Nokta')
+      pick.setAttribute('aria-label', `${label} noktası`)
+      const unit = document.createElement('span')
+      unit.className = 'olcu-cm'
+      const input = document.createElement('input')
+      input.id = id
+      bindDecimal(input)
+      input.value = olcu[key] ?? ''
+      input.addEventListener('change', () => save({ [key]: readDecimal(input.value) }))
+      const cm = document.createElement('span')
+      cm.textContent = 'cm'
+      cm.setAttribute('aria-hidden', 'true')
+      unit.append(input, cm)
+      row.append(swatch, name, pick, unit)
+      group.append(row)
     }
-    box.append(disclosure('olcu', 'Ölçü', hedefButton('merkez', 'Merkez belirle'), group))
+    box.append(disclosure('olcu', 'Ölçü', merkez, group))
     const cift = {
       a: Array.isArray(olcu.cift?.a) ? olcu.cift.a : null,
       b: Array.isArray(olcu.cift?.b) ? olcu.cift.b : null,
@@ -466,7 +499,7 @@ export function mount(hooks) {
       y: olcu.cift?.y ?? null
     }
     const modes = document.createElement('div')
-    modes.className = 'eylem'
+    modes.className = 'olcu-mod'
     modes.setAttribute('role', 'group')
     modes.setAttribute('aria-label', 'Referans')
     for (const [id, label] of [['kose', 'Köşe'], ['kenar', 'Kenar'], ['yuzey', 'Yüzey']]) {
@@ -475,10 +508,12 @@ export function mount(hooks) {
       modes.append(item)
     }
     const distance = button('Mesafe ölç', () => hooks.onOlcuHedef?.('mesafe'))
+    distance.className = 'olcu-mesafe'
     distance.setAttribute('aria-pressed', ui.olcuHedef === 'a' || ui.olcuHedef === 'b' ? 'true' : 'false')
     const pairBody = [modes, distance]
     if (fit && cift.a && cift.b && model.olcek) {
       const live = document.createElement('p')
+      live.className = 'olcu-aralik'
       const now = pairCm(cift.a, cift.b, fit.s, model.olcek)
       live.textContent = `İki nokta arası ${now.toFixed(1)} cm`
       pairBody.push(live)

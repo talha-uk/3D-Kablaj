@@ -329,7 +329,78 @@ ul { list-style: none; margin: 0.4rem 0 0; padding: 0; display: flex; flex-direc
   border-radius: 0.4rem;
 }
 .eylem { display: flex; flex-wrap: wrap; gap: 0.35rem; }
-.eksenler { display: flex; flex-direction: column; gap: 0.45rem; }
+
+.eksenler { display: flex; flex-direction: column; gap: 0.35rem; }
+
+.olcu-satir {
+  display: grid;
+  grid-template-columns: auto minmax(4.5rem, 1fr) auto auto;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  background: var(--bg);
+}
+
+.olcu-merkez { grid-template-columns: auto 1fr auto; }
+
+.olcu-renk {
+  inline-size: 0.7rem;
+  block-size: 0.7rem;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 30%, transparent);
+}
+
+.olcu-satir label { font-size: 0.9rem; font-weight: 650; }
+
+.olcu-satir button {
+  min-inline-size: 4.4rem;
+  min-block-size: 2.2rem;
+  padding-inline: 0.55rem;
+}
+
+.olcu-cm {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.olcu-cm input {
+  inline-size: 4.4rem;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: var(--panel);
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.olcu-mod {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  overflow: hidden;
+}
+
+.olcu-mod button {
+  min-inline-size: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.olcu-mod button + button { border-inline-start: 1px solid var(--line); }
+
+.olcu-mesafe { inline-size: 100%; }
+
+.olcu-aralik {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
 .kisayol { color: var(--muted); font-size: 0.85rem; }
 
 dialog[open] {
