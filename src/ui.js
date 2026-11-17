@@ -447,17 +447,15 @@ export function mount(hooks) {
       ['boy', 'Boy', 'olcu-boy'],
       ['derinlik', 'Derinlik', 'olcu-derinlik']
     ]
-    box.append(disclosure(
-      'olcu',
-      'Ölçü',
-      hedefButton('merkez', 'Merkez belirle'),
-      ...axes.map(([key, label, id]) => disclosure(
-        key,
-        label,
+    const group = document.createElement('div')
+    group.className = 'eksenler'
+    for (const [key, label, id] of axes) {
+      group.append(
         hedefButton(key, `${label} noktası`),
         cmInput(`${label} (cm)`, olcu[key], (value) => save({ [key]: value }), id)
-      ))
-    ))
+      )
+    }
+    box.append(disclosure('olcu', 'Ölçü', hedefButton('merkez', 'Merkez belirle'), group))
     const cift = {
       a: Array.isArray(olcu.cift?.a) ? olcu.cift.a : null,
       b: Array.isArray(olcu.cift?.b) ? olcu.cift.b : null,
@@ -492,15 +490,6 @@ export function mount(hooks) {
       pairBody.splice(2, 0, live)
     }
     box.append(disclosure('cift', 'İki nokta', ...pairBody))
-    const list = document.createElement('ul')
-    for (const cable of state.cables) {
-      const cm = hooks.cableLength?.(cable)
-      const row = document.createElement('li')
-      row.className = 'not'
-      row.textContent = `${cable.name}: ${cm == null ? 'ölçü yok' : `${cm.toFixed(1)} cm`}`
-      list.append(row)
-    }
-    box.append(disclosure('kablo', 'Kablo boyu', list))
     return box
   }
 

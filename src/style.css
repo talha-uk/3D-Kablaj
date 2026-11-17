@@ -329,6 +329,7 @@ ul { list-style: none; margin: 0.4rem 0 0; padding: 0; display: flex; flex-direc
   border-radius: 0.4rem;
 }
 .eylem { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.eksenler { display: flex; flex-direction: column; gap: 0.45rem; }
 .kisayol { color: var(--muted); font-size: 0.85rem; }
 
 dialog[open] {
