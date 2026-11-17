@@ -11,7 +11,7 @@ import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
 import { cableRadius, SCHEMA_LIFT, routeClear, routeSchema, routeVia } from './route.js'
-import { cableShown } from './state.js'
+import { cableShown, portTypeOf } from './state.js'
 
 function ownedBox(width, height, depth) {
   const geometry = new THREE.BoxGeometry(width, height, depth)
@@ -197,6 +197,131 @@ function addUsbCPort(pivot, fit, component, port) {
     )
     contact.castShadow = false
   }
+}
+
+function endMat(color, metalness, roughness) {
+  const material = new THREE.MeshStandardMaterial({ color, metalness, roughness })
+  material.userData.owned = true
+  return remember(material)
+}
+
+function endMesh(group, geometry, material, x, y, z, cableId) {
+  const mesh = new THREE.Mesh(geometry, material)
+  mesh.position.set(x, y, z)
+  mesh.castShadow = true
+  mesh.userData.kind = 'cable'
+  mesh.userData.cableId = cableId
+  group.add(mesh)
+  return mesh
+}
+
+function cm(value) {
+  return value / 10
+}
+
+function addCoaxPlug(group, cableId, nType) {
+  const metal = endMat(nType ? 0xd5dee7 : 0xe4c56a, nType ? 0.82 : 0.74, 0.28)
+  const pinMat = endMat(0xf3d48a, 0.9, 0.16)
+  const ptfe = endMat(0xf4f0e6, 0.02, 0.4)
+  const boot = endMat(0x1a1a1a, 0.08, 0.7)
+  const hexR = cm(nType ? 11 : 4.62)
+  const bodyR = cm(nType ? 7.2 : 3.4)
+  const nutT = cm(nType ? 7 : 5.5)
+  const bodyL = cm(nType ? 12 : 7)
+  const pinR = cm(nType ? 0.8 : 0.64)
+  endMesh(group, ownedCylinder(pinR, pinR, cm(2.4), 10), pinMat, 0, cm(-0.7), 0, cableId)
+  endMesh(group, ownedCylinder(hexR, hexR, nutT, 6), metal, 0, nutT / 2, 0, cableId)
+  endMesh(group, ownedRing(bodyR * 0.35, bodyR * 0.85), ptfe, 0, cm(0.15), 0, cableId)
+  endMesh(group, ownedCylinder(bodyR, bodyR, bodyL, 20), metal, 0, nutT + bodyL / 2, 0, cableId)
+  for (let ring = 0; ring < 4; ring += 1) {
+    endMesh(group, ownedCylinder(bodyR * 1.08, bodyR * 1.08, cm(0.45), 16), metal, 0, nutT + cm(1.2 + ring * 1.3), 0, cableId)
+  }
+  const back = nutT + bodyL
+  endMesh(group, ownedCylinder(bodyR * 0.9, cm(nType ? 6 : 2.2), cm(6), 16), boot, 0, back + cm(2.2), 0, cableId)
+  return back + cm(4.5)
+}
+
+function addRjPlug(group, cableId) {
+  const shell = endMat(0xd5dde6, 0.15, 0.35)
+  const latch = endMat(0x9aa3ab, 0.1, 0.45)
+  const gold = endMat(0xd4af37, 0.9, 0.22)
+  const boot = endMat(0x4a5158, 0.06, 0.62)
+  const width = cm(11.6)
+  const tall = cm(6.4)
+  const nose = cm(8)
+  const body = cm(14)
+  endMesh(group, ownedBox(width, nose, tall), shell, 0, nose / 2 - cm(3), 0, cableId)
+  endMesh(group, ownedBox(width * 0.72, cm(3.5), cm(1.1)), latch, 0, cm(2.2), tall * 0.42, cableId)
+  for (let pin = 0; pin < 8; pin += 1) {
+    const contact = endMesh(group, ownedBox(cm(0.45), cm(2.2), cm(0.35)), gold, -width * 0.32 + pin * cm(1.05), cm(0.2), -tall * 0.28, cableId)
+    contact.castShadow = false
+  }
+  endMesh(group, ownedBox(width * 0.9, body, tall * 0.85), boot, 0, nose + body / 2 - cm(2), 0, cableId)
+  return nose + body
+}
+
+function addUsbAPlug(group, cableId, blue) {
+  const shell = endMat(0xe7ecef, 0.7, 0.28)
+  const house = endMat(blue ? 0x1d4ed8 : 0x1c1c1c, 0.08, 0.5)
+  const boot = endMat(0x222222, 0.06, 0.66)
+  const width = cm(12)
+  const thick = cm(4.5)
+  const nose = cm(12)
+  endMesh(group, ownedBox(width, nose, thick), shell, 0, nose / 2 - cm(6), 0, cableId)
+  endMesh(group, ownedBox(width * 0.72, cm(4), thick * 0.28), house, 0, cm(1.2), 0, cableId)
+  endMesh(group, ownedCylinder(cm(4.2), cm(2.4), cm(10), 16), boot, 0, nose + cm(2), 0, cableId)
+  return nose + cm(6)
+}
+
+function addUsbCPlug(group, cableId) {
+  const shell = endMat(0xe8eef1, 0.68, 0.28)
+  const boot = endMat(0x2a2a2a, 0.12, 0.72)
+  const width = cm(8.6)
+  const thick = cm(2.6)
+  const nose = cm(7)
+  endMesh(group, ownedBox(width, nose, thick), shell, 0, nose / 2 - cm(3.5), 0, cableId)
+  endMesh(group, ownedCylinder(cm(3.6), cm(2.2), cm(12), 16), boot, 0, nose + cm(3), 0, cableId)
+  return nose + cm(8)
+}
+
+function addBarrelPlug(group, cableId) {
+  const steel = endMat(0xd5dbe2, 0.78, 0.28)
+  const black = endMat(0x1a1a1a, 0.08, 0.62)
+  const ring = endMat(0xc62828, 0.12, 0.5)
+  endMesh(group, ownedCylinder(cm(2.6), cm(2.6), cm(9), 20), steel, 0, cm(-1), 0, cableId)
+  endMesh(group, ownedCylinder(cm(3.4), cm(3.4), cm(1.2), 20), ring, 0, cm(3.2), 0, cableId)
+  endMesh(group, ownedCylinder(cm(4.2), cm(2.6), cm(12), 18), black, 0, cm(8), 0, cableId)
+  return cm(14)
+}
+
+function addPlainBoot(group, cableId) {
+  const boot = endMat(0x3a3a3a, 0.08, 0.66)
+  endMesh(group, ownedCylinder(cm(3.2), cm(2), cm(8), 16), boot, 0, cm(3), 0, cableId)
+  return cm(7)
+}
+
+function addCablePlug(group, type, cableId) {
+  if (type === 'sma' || type === 'rf') return addCoaxPlug(group, cableId, false)
+  if (type === 'ntype') return addCoaxPlug(group, cableId, true)
+  if (type === 'ag') return addRjPlug(group, cableId)
+  if (type === 'usb3') return addUsbAPlug(group, cableId, true)
+  if (type === 'usb' || type === 'usb2') return addUsbAPlug(group, cableId, false)
+  if (type === 'usbc') return addUsbCPlug(group, cableId)
+  if (type === 'guc') return addBarrelPlug(group, cableId)
+  return addPlainBoot(group, cableId)
+}
+
+function jacketPoints(points, origin, normal, reach) {
+  if (!points?.length || !(reach > 0)) return points
+  const start = [0, 1, 2].map((axis) => origin[axis] + normal[axis] * reach)
+  let index = 1
+  while (index < points.length - 1) {
+    let along = 0
+    for (let axis = 0; axis < 3; axis += 1) along += (points[index][axis] - origin[axis]) * normal[axis]
+    if (along >= reach) break
+    index += 1
+  }
+  return [start, ...points.slice(index)]
 }
 
 function addPowerPort(pivot, fit, component, port) {
@@ -983,7 +1108,14 @@ export class View {
         ? routeVia(a.position, a.normal, b.position, b.normal, vias, this.mode === 'sema' ? lift : null)
         : plain
       if (!points) continue
-      const curve = new THREE.CatmullRomCurve3(points.map((point) => new THREE.Vector3().fromArray(point)))
+      const typeA = portTypeOf(this.state, cable.a.componentId, cable.a.portId) || cable.type
+      const typeB = portTypeOf(this.state, cable.b.componentId, cable.b.portId) || cable.type
+      const reachA = this.addCableEnd(a, typeA, cable.id)
+      const reachB = this.addCableEnd(b, typeB, cable.id)
+      const fromA = jacketPoints(points, a.position, a.normal, reachA)
+      const jacketLine = jacketPoints(fromA.slice().reverse(), b.position, b.normal, reachB).reverse()
+      const line = jacketLine.length >= 2 ? jacketLine : points
+      const curve = new THREE.CatmullRomCurve3(line.map((point) => new THREE.Vector3().fromArray(point)))
       if (this.mode === 'sema') {
         curve.curveType = 'catmullrom'
         curve.tension = 0.08
@@ -1006,6 +1138,7 @@ export class View {
         roughness: jacket.roughness,
         metalness: jacket.metalness
       }))
+      material.userData.owned = true
       const mesh = new THREE.Mesh(geometry, material)
       mesh.castShadow = true
       mesh.userData.kind = 'cable'
@@ -1017,6 +1150,7 @@ export class View {
       const pick = new THREE.Mesh(pickGeometry, new THREE.MeshBasicMaterial())
       pick.visible = false
       pick.userData.kind = 'cable'
+      pick.material.userData.owned = true
       pick.userData.cableId = cable.id
       this.cableRoot.add(pick)
       if (this.selection?.kind === 'cable' && this.selection.id === cable.id && vias.length) {
@@ -1097,11 +1231,29 @@ export class View {
     })
   }
 
+  addCableEnd(frame, type, cableId) {
+    const group = new THREE.Group()
+    group.position.fromArray(frame.position)
+    group.quaternion.copy(portOrientation(new THREE.Vector3().fromArray(frame.normal), 0))
+    group.userData.kind = 'cable'
+    group.userData.cableId = cableId
+    const reach = addCablePlug(group, type, cableId)
+    this.cableRoot.add(group)
+    return reach
+  }
+
   clearCables() {
+    const release = (object) => {
+      if (object.geometry?.userData.owned) object.geometry.dispose()
+      const materials = Array.isArray(object.material) ? object.material : [object.material]
+      for (const material of materials) {
+        if (!material?.userData.owned) continue
+        if (material.map?.userData.owned) material.map.dispose()
+        material.dispose()
+      }
+    }
     for (const child of [...this.cableRoot.children]) {
-      if (child.geometry?.userData.owned) child.geometry.dispose()
-      if (child.material?.map?.userData.owned) child.material.map.dispose()
-      if (child.material) child.material.dispose()
+      child.traverse(release)
       child.removeFromParent()
     }
     this.cableMeshes.clear()
