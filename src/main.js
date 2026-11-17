@@ -40,15 +40,14 @@ const ui = mount({
     applyMode(mode)
     publish(false)
   },
-  onTool: async (tool) => {
+  onTool: (tool) => {
     if (tool === 'kablo' && uiState.mode === 'incele') return
     if (tool === 'port' && uiState.mode === 'sema') return
     if (tool === 'olcu' && uiState.mode !== 'incele') return
     const keepMeasure = tool === 'olcu'
     uiState = { ...uiState, tool, olcuHedef: keepMeasure ? uiState.olcuHedef : null }
     view.setTool(tool)
-    await publish(false)
-    if (uiState.mode === 'incele' && tool === 'olcu') view.frame()
+    publish(false)
   },
   onType: (cableType) => {
     uiState = { ...uiState, cableType }
