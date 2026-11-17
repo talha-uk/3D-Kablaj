@@ -6,7 +6,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { clone as cloneObject } from 'three/addons/utils/SkeletonUtils.js'
 import { focusFor } from './focus.js'
 import { SCHEMA_TILT, aimAhead, axisAngles, cameraPlacement, flyDelta, groundAxes, panFocus, schemaPose, turnLook } from './fly.js'
-import { exteriorMask, sameFaceTriangles, snapReference } from './olcu.js'
+import { exteriorMask, sameFaceTriangles, snapReference, uniqueMeasureCorner } from './olcu.js'
 import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
@@ -1789,6 +1789,23 @@ export class View {
       y: result.y,
       drag
     })
+  }
+
+  measureAutoPoints(anchor) {
+    const align = this.inspectRoot.children[0]
+    if (!align || !anchor) return null
+    align.updateWorldMatrix(true, false)
+    const inverse = align.matrixWorld.clone().invert()
+    const triangles = []
+    align.traverse((object) => {
+      if (object.userData.kind !== 'submesh') return
+      triangles.push(...this.meshTriangles(object, inverse))
+    })
+    return {
+      en: uniqueMeasureCorner(triangles, anchor, 'en'),
+      boy: uniqueMeasureCorner(triangles, anchor, 'boy'),
+      derinlik: uniqueMeasureCorner(triangles, anchor, 'derinlik')
+    }
   }
 
   createCornerMeasure(hit, hedef, drag = false) {

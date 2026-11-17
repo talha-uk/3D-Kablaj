@@ -6,7 +6,7 @@ import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
 import { routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
 import { addCable, addComponent, addModel, addPort, cableShown, emptyState, matchCable, uid } from '../src/state.js'
-import { cableLengthCm, decimalText, exteriorMask, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference } from '../src/olcu.js'
+import { cableLengthCm, decimalText, exteriorMask, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference, uniqueMeasureCorner } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
 import fs from 'node:fs'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
@@ -350,6 +350,14 @@ const boyPoint = placeMeasurePoint(held, { hedef: 'boy', position: [5, 9, 3] })
 check('boy ön düzlemde', boyPoint.kenar.boy[0] === 5 && boyPoint.kenar.boy[1] === 9 && boyPoint.kenar.boy[2] === 0)
 const depthPoint = placeMeasurePoint(held, { hedef: 'derinlik', position: [5, 9, 3] })
 check('derinlik yan düzlemde', depthPoint.kenar.derinlik[0] === 0 && depthPoint.kenar.derinlik[1] === 9 && depthPoint.kenar.derinlik[2] === 3)
+const autoFace = [[[0, 0, 0], [2, 0, 1], [0, 1, 0]]]
+const autoEn = uniqueMeasureCorner(autoFace, [0, 0, 0], 'en')
+check('tek en köşesi otomatik', autoEn && autoEn[0] === 2 && autoEn[1] === 0 && autoEn[2] === 1)
+const manyEn = uniqueMeasureCorner([
+  [[0, 0, 0], [2, 0, 1], [0, 1, 0]],
+  [[0, 0, 0], [2, 0, 1], [1, 0, 2]]
+], [0, 0, 0], 'en')
+check('iki en köşesi otomatik değil', manyEn == null)
 const sameFace = placeMeasurePoint(held, { hedef: 'a', position: [0, 0.4, 0.2], plane: { normal: [1, 0, 0], d: 0 }, y: 0.4, drag: true })
 check('aynı yüzde ikinci nokta durur', sameFace.cift.b && sameFace.cift.b[1] === 1)
 const otherFaceMove = placeMeasurePoint(held, { hedef: 'a', position: [1, 2, 0], plane: { normal: [0, 1, 0], d: 2 }, y: 2, drag: true })

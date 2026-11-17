@@ -214,9 +214,7 @@ h2 { font-size: 0.85rem; margin-block-end: 0.4rem; }
 
 .hiyerarsi-baslik h2 {
   margin: 0;
-  font-size: 0.75rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 0.85rem;
 }
 
 .hiyerarsi-baslik button {
@@ -454,6 +452,16 @@ ul { list-style: none; margin: 0.4rem 0 0; padding: 0; display: flex; flex-direc
 }
 
 .olcu-merkez { grid-template-columns: auto 1fr auto; }
+
+.olcu-oto {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+}
+
+.olcu-oto input { inline-size: 1rem; block-size: 1rem; }
 
 .olcu-renk {
   inline-size: 0.7rem;

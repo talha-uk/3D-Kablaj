@@ -156,6 +156,7 @@ export function measureOf(model) {
       boy: pointOrNull(kenar.boy),
       derinlik: pointOrNull(kenar.derinlik)
     },
+    otomatik: Boolean(olcu.otomatik),
     cift: olcu.cift || null
   }
 }

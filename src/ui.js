@@ -326,6 +326,17 @@ export function mount(hooks) {
     const merkezBtn = hedefButton('merkez', 'Nokta')
     merkezBtn.setAttribute('aria-label', 'Merkez belirle')
     merkez.append(merkezRenk, merkezAd, merkezBtn)
+    const autoLabel = document.createElement('label')
+    autoLabel.className = 'olcu-oto'
+    autoLabel.htmlFor = 'olcu-otomatik'
+    const auto = document.createElement('input')
+    auto.type = 'checkbox'
+    auto.id = 'olcu-otomatik'
+    auto.checked = Boolean(olcu.otomatik)
+    auto.addEventListener('change', () => save({ otomatik: auto.checked }))
+    const autoText = document.createElement('span')
+    autoText.textContent = 'Merkeze göre otomatik'
+    autoLabel.append(auto, autoText)
     const axes = [
       ['en', 'En', 'olcu-en', '#e10600'],
       ['boy', 'Boy', 'olcu-boy', '#16a34a'],
@@ -361,7 +372,7 @@ export function mount(hooks) {
       row.append(swatch, name, pick, unit)
       group.append(row)
     }
-    box.append(disclosure('olcu', 'Ölçü', merkez, group))
+    box.append(disclosure('olcu', 'Ölçü', merkez, autoLabel, group))
     const cift = {
       a: Array.isArray(olcu.cift?.a) ? olcu.cift.a : null,
       b: Array.isArray(olcu.cift?.b) ? olcu.cift.b : null,

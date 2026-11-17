@@ -57,6 +57,7 @@ export function placeMeasurePoint(olcu, point) {
       boy: olcu.kenar?.boy ?? null,
       derinlik: olcu.kenar?.derinlik ?? null
     },
+    otomatik: Boolean(olcu.otomatik),
     cift: olcu.cift ? { ...olcu.cift } : null
   }
   if (point.hedef === 'a' || point.hedef === 'b') {
@@ -93,6 +94,35 @@ export function placeMeasurePoint(olcu, point) {
     return next
   }
   return next
+}
+
+// Düzlemde merkezden farklı tek bir köşe varsa o konumdur.
+export function uniqueMeasureCorner(triangles, anchor, hedef) {
+  if (!anchor || !triangles?.length) return null
+  const corners = cornerVertices(cornerGraph(triangles))
+  let min = [Infinity, Infinity, Infinity]
+  let max = [-Infinity, -Infinity, -Infinity]
+  for (const corner of corners) {
+    for (let axis = 0; axis < 3; axis += 1) {
+      min[axis] = Math.min(min[axis], corner[axis])
+      max[axis] = Math.max(max[axis], corner[axis])
+    }
+  }
+  const span = Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) || 1
+  const eps = Math.max(span * 1e-4, 1e-6)
+  const lock = hedef === 'en' ? 1 : hedef === 'boy' ? 2 : 0
+  const seen = new Set()
+  const found = []
+  for (const corner of corners) {
+    if (Math.abs(corner[lock] - anchor[lock]) > eps) continue
+    if (Math.hypot(corner[0] - anchor[0], corner[1] - anchor[1], corner[2] - anchor[2]) <= eps) continue
+    const key = vertexKey(corner)
+    if (seen.has(key)) continue
+    seen.add(key)
+    found.push(corner)
+  }
+  if (found.length !== 1) return null
+  return measurePlane(found[0], anchor, hedef)
 }
 
 function measurePlane(position, anchor, hedef) {

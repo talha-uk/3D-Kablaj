@@ -102,7 +102,7 @@ const ui = mount({
     commit({ ...emptyState(), models: state.models }, 'Yeni düzenek.')
   },
   onDownload: () => downloadProject(state),
-  onOlcu: (modelId, olcu) => applyMeasure(modelId, olcu, 'kenar'),
+  onOlcu: (modelId, olcu) => applyMeasure(modelId, withAutoPoints(olcu), 'kenar'),
   onOlcuPair: (modelId, olcu) => {
     if (!olcu.cift?.a && !olcu.cift?.b && (uiState.olcuHedef === 'a' || uiState.olcuHedef === 'b')) {
       uiState = { ...uiState, olcuHedef: null }
@@ -179,7 +179,8 @@ const view = new View(document.getElementById('sahne'), {
     const modelId = uiState.inspectId
     if (!modelId) return
     const model = state.models.find((item) => item.id === modelId)
-    const olcu = placeMeasurePoint(measureOf(model), point)
+    let olcu = placeMeasurePoint(measureOf(model), point)
+    if (!point.drag && point.hedef === 'merkez') olcu = withAutoPoints(olcu, point.position)
     const source = point.hedef === 'a' || point.hedef === 'b' ? 'cift' : 'kenar'
     if (point.drag) {
       previewMeasure(modelId, olcu, source)
@@ -189,6 +190,12 @@ const view = new View(document.getElementById('sahne'), {
     applyMeasure(modelId, olcu, source)
   },
   onMeasureDragEnd: () => {
+    if (uiState.olcuHedef === 'merkez' && uiState.inspectId) {
+      const model = state.models.find((item) => item.id === uiState.inspectId)
+      const current = measureOf(model)
+      const olcu = withAutoPoints(current)
+      if (olcu !== current) applyMeasure(uiState.inspectId, olcu, 'kenar')
+    }
     if (measureUndo) ui.status('Ölçü güncellendi.')
     measureUndo = false
   },
@@ -328,6 +335,20 @@ function applyMode(mode) {
   uiState = { ...uiState, mode, tool }
   view.setMode(mode)
   view.setTool(tool)
+}
+
+function withAutoPoints(olcu, anchor = olcu?.kenar?.merkez) {
+  if (!olcu?.otomatik || !Array.isArray(anchor)) return olcu
+  const found = view.measureAutoPoints(anchor)
+  if (!found) return olcu
+  const kenar = { ...olcu.kenar }
+  let changed = false
+  for (const key of ['en', 'boy', 'derinlik']) {
+    if (!found[key]) continue
+    kenar[key] = found[key]
+    changed = true
+  }
+  return changed ? { ...olcu, kenar } : olcu
 }
 
 function measureScale(modelId, olcu, source) {
