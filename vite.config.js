@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { solidGlb } from './server/solid.mjs'
 
 const root = path.dirname(fileURLToPath(import.meta.url))
 const proje = path.join(root, 'proje')
@@ -46,16 +47,27 @@ export default defineConfig({
             }
             if (url === '/api/model' && req.method === 'POST') {
               const body = await read(req)
-              const original = safeName(decodeURIComponent(req.headers['x-filename'] || 'model.glb'))
+              const rawName = path.basename(decodeURIComponent(String(req.headers['x-filename'] || 'model.glb')))
+              if (rawName.startsWith('~$')) throw new Error('Bu bir kilit dosyası.')
               const id = crypto.randomUUID()
+              let bytes = body
+              let boyut = null
+              if (/\.sldprt$/i.test(rawName)) {
+                const sonuc = solidGlb(body, rawName.replace(/\.sldprt$/i, '') || 'solid')
+                bytes = sonuc.buf
+                boyut = sonuc.boyut
+              } else if (!/\.glb$/i.test(rawName)) {
+                throw new Error('Uzantı .glb veya .sldprt olmalı.')
+              }
               const file = `${id}.glb`
               fs.mkdirSync(modeller, { recursive: true })
-              fs.writeFileSync(path.join(modeller, file), body)
+              fs.writeFileSync(path.join(modeller, file), bytes)
               res.setHeader('content-type', 'application/json')
               res.end(JSON.stringify({
                 id,
                 file,
-                name: original.replace(/\.glb$/i, '')
+                name: rawName.replace(/\.(glb|sldprt)$/i, ''),
+                boyut
               }))
               return
             }

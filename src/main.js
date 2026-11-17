@@ -1,3 +1,4 @@
+import { dosyaUygun } from './bicim.js'
 import { View } from './scene.js'
 import { mount } from './ui.js'
 import { cableLengthCm, placeMeasurePoint, scaleFromEdges, scaleFromPair } from './olcu.js'
@@ -31,7 +32,7 @@ const demo = params.has('demo')
 let state = emptyState()
 let past = []
 let future = []
-let uiState = { mode: 'yerlesim', tool: 'sec', cableType: 'guc', selection: null, inspectId: null, olcuHedef: null }
+let uiState = { mode: 'yerlesim', tool: 'sec', cableType: 'guc', selection: null, inspectId: null, olcuHedef: null, bicim: 'glb' }
 let poseMark = false
 let measureUndo = false
 
@@ -40,6 +41,12 @@ const ui = mount({
     pinInspect()
     applyMode(mode)
     publish(false)
+  },
+  onBicim: (bicim) => {
+    if (bicim !== 'glb' && bicim !== 'solid') return
+    if (bicim === uiState.bicim) return
+    uiState = { ...uiState, bicim }
+    publish(false, bicim === 'solid' ? 'Solid ayarı. Uzantı .sldprt.' : 'GLB ayarı. Uzantı .glb.')
   },
   onTool: (tool) => {
     if (tool === 'kablo' && uiState.mode === 'incele') return
@@ -307,18 +314,27 @@ function publish(save, message) {
 }
 
 async function upload(files) {
-  const list = [...files].filter((file) => file.name.toLowerCase().endsWith('.glb'))
+  const list = [...files].filter((file) => dosyaUygun(file.name, uiState.bicim))
   if (list.length === 0) {
-    ui.status('GLB dosyası gerekli.')
+    const uzanti = uiState.bicim === 'solid' ? '.sldprt' : '.glb'
+    ui.status(uiState.bicim === 'solid' ? `Solid ayarı ${uzanti} bekliyor.` : `GLB ayarı ${uzanti} bekliyor.`)
     return
   }
   let next = state
-  for (const file of list) {
-    const meta = await uploadModel(file)
-    next = addModel(next, { id: meta.id, name: meta.name, file: meta.file })
-    uiState = { ...uiState, inspectId: meta.id }
+  let boyut = ''
+  try {
+    for (const file of list) {
+      const meta = await uploadModel(file)
+      next = addModel(next, { id: meta.id, name: meta.name, file: meta.file, boyut: meta.boyut || null })
+      uiState = { ...uiState, inspectId: meta.id }
+      if (meta.boyut) boyut = meta.boyut
+    }
+  } catch (error) {
+    ui.status(error instanceof Error ? error.message : 'Dosya açılmadı.')
+    return
   }
-  commit(next, list.length === 1 ? 'Model yüklendi.' : `${list.length} model yüklendi.`)
+  const base = list.length === 1 ? 'Model yüklendi.' : `${list.length} model yüklendi.`
+  commit(next, boyut ? `${base} ${boyut}` : base)
 }
 
 async function place(modelId) {

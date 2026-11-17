@@ -39,8 +39,9 @@ export function rememberBuffer(id, buffer) {
 }
 
 export async function uploadModel(file) {
-  const buffer = await file.arrayBuffer()
+  let buffer = await file.arrayBuffer()
   const headerName = encodeURIComponent(file.name)
+  const solid = file.name.toLowerCase().endsWith('.sldprt')
   let meta = null
   try {
     const response = await fetch('/api/model', {
@@ -49,12 +50,20 @@ export async function uploadModel(file) {
       body: buffer
     })
     if (response.ok) meta = await response.json()
-  } catch {
+    else if (solid) throw new Error((await response.text()).trim() || 'Solid dosyası açılmadı.')
+  } catch (error) {
+    if (solid) throw error instanceof Error ? error : new Error('Solid dosyası açılmadı.')
     meta = null
   }
   if (!meta) {
+    if (solid) throw new Error('Solid dosyası açılmadı.')
     const id = crypto.randomUUID()
     meta = { id, file: `${id}.glb`, name: file.name.replace(/\.glb$/i, '') }
+  }
+  if (solid) {
+    const saved = await fetch(`/modeller/${encodeURIComponent(meta.file)}`)
+    if (!saved.ok) throw new Error('Solid dosyası açılmadı.')
+    buffer = await saved.arrayBuffer()
   }
   localBuffers.set(meta.id, buffer)
   try {

@@ -1,3 +1,4 @@
+import { bicimKaydi } from './bicim.js'
 import { decimalText, pairCm } from './olcu.js'
 import { componentName, componentPorts, matchCable, measureOf, portName, portTypeOf, typeName } from './state.js'
 import { bindTabs, bindToolbar } from './keys.js'
@@ -25,7 +26,12 @@ function ask(dialog, prepare) {
 }
 
 export function mount(hooks) {
-  const tabs = bindTabs(document.querySelector('[role="tablist"]'), hooks.onMode)
+  const tabs = bindTabs(document.getElementById('gorunum-sekme'), hooks.onMode)
+  const bicimTabs = bindTabs(document.getElementById('bicim-sekme'), (bicim) => {
+    dosya.accept = bicimKaydi(bicim).accept
+    dosya.value = ''
+    hooks.onBicim?.(bicim)
+  }, { key: 'bicim', panel: false })
   bindToolbar(document.querySelector('[role="toolbar"]'))
   const durum = document.getElementById('durum')
   const bos = document.getElementById('bos')
@@ -115,6 +121,9 @@ export function mount(hooks) {
       }
     }
     tabs.setMode(ui.mode)
+    const bicim = bicimKaydi(ui.bicim)
+    bicimTabs.setMode(ui.bicim || 'glb')
+    dosya.accept = bicim.accept
 
     const showEmpty = ui.mode === 'incele' ? !ui.inspectId : state.components.length === 0
     bos.hidden = !showEmpty
@@ -429,7 +438,7 @@ export function mount(hooks) {
     hiyerarsi.replaceChildren()
     const modelRows = state.models.map((model) => treeItem({
       id: `model:${model.id}`,
-      label: model.name,
+      label: model.boyut ? `${model.name} · ${model.boyut}` : model.name,
       depth: 1,
       kind: 'model',
       selected: ui.inspectId === model.id && ui.mode === 'incele',
@@ -439,7 +448,7 @@ export function mount(hooks) {
         ? null
         : removeButton(() => hooks.onRemoveModel?.(model.id))
     }))
-    if (!modelRows.length) modelRows.push(noteItem('GLB dosyasını buraya bırak.', 1))
+    if (!modelRows.length) modelRows.push(noteItem(`${bicimKaydi(ui.bicim).uzanti} dosyasını buraya bırak.`, 1))
     const sceneRows = state.components.map((component) => {
       const children = []
       for (const port of componentPorts(state, component)) {

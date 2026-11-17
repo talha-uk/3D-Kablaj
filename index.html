@@ -12,10 +12,14 @@
   <div class="app">
     <header class="ust">
       <h1>3D Kablaj</h1>
-      <div class="sekme" focusgroup="tablist nomemory" role="tablist" aria-label="Görünüm">
+      <div class="sekme" id="gorunum-sekme" focusgroup="tablist nomemory" role="tablist" aria-label="Görünüm">
         <button type="button" role="tab" id="tab-incele" data-mode="incele" aria-selected="false">İncele</button>
         <button type="button" role="tab" id="tab-yerlesim" data-mode="yerlesim" aria-selected="true" focusgroupstart>Yerleşim</button>
         <button type="button" role="tab" id="tab-sema" data-mode="sema" aria-selected="false">Şema</button>
+      </div>
+      <div class="sekme" id="bicim-sekme" focusgroup="tablist nomemory" role="tablist" aria-label="Dosya biçimi">
+        <button type="button" role="tab" id="tab-glb" data-bicim="glb" aria-selected="true" focusgroupstart>GLB .glb</button>
+        <button type="button" role="tab" id="tab-solid" data-bicim="solid" aria-selected="false">Solid .sldprt</button>
       </div>
       <label class="ad">Proje
         <input id="proje-ad" type="text" value="Adsız düzenek" autocomplete="off">

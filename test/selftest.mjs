@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { dosyaUygun } from '../src/bicim.js'
 import { SCHEMA_TILT, aimAhead, axisAngles, cameraBasis, cameraPlacement, dollyScale, faceBasis, flyDelta, flySpeed, groundAxes, panFocus, pickView, schemaPose, turnLook, wheelPixels } from '../src/fly.js'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { headingFromQuaternion, portOrientation, portRoll } from '../src/yaw.js'
@@ -154,6 +155,8 @@ check('uzaklaşınca hız tavana oturur', farSpeed > homeSpeed && farSpeed < 6.2
 check('çentik zoomu aynı kalır', Math.abs(dollyScale(wheelPixels({ deltaY: 100, deltaMode: 0 })) - 0.95) < 1e-9)
 check('dev tekerlek tavana takılır', wheelPixels({ deltaY: 4000, deltaMode: 0 }) === 140)
 check('sıkıştırma da tavana takılır', wheelPixels({ deltaY: 200, deltaMode: 0, ctrlKey: true }) === 140)
+check('glb ayarı yalnız glb alır', dosyaUygun('kutu.glb', 'glb') && !dosyaUygun('kutu.SLDPRT', 'glb'))
+check('solid ayarı yalnız sldprt alır', dosyaUygun('parca.SLDPRT', 'solid') && !dosyaUygun('parca.glb', 'solid'))
 
 const still = new THREE.PerspectiveCamera(45, 1, 0.1, 100)
 still.position.set(3, 2.4, 4)

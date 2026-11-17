@@ -1,15 +1,22 @@
-export function bindTabs(tablist, onSelect) {
+export function bindTabs(tablist, onSelect, options = {}) {
+  const key = options.key || 'mode'
+  const panelId = options.panel === false ? null : 'gorunum'
   const tabs = () => [...tablist.querySelectorAll('[role="tab"]')]
 
-  function select(tab, focus) {
+  function mark(tab) {
     for (const item of tabs()) {
       const on = item === tab
       item.setAttribute('aria-selected', on ? 'true' : 'false')
       item.toggleAttribute('focusgroupstart', on)
+      if (!('focusGroup' in HTMLElement.prototype)) item.tabIndex = on ? 0 : -1
     }
-    const panel = document.getElementById('gorunum')
-    panel.setAttribute('aria-labelledby', tab.id)
-    onSelect(tab.dataset.mode)
+    if (!panelId) return
+    document.getElementById(panelId)?.setAttribute('aria-labelledby', tab.id)
+  }
+
+  function select(tab, focus) {
+    mark(tab)
+    onSelect(tab.dataset[key])
     if (focus) tab.focus()
   }
 
@@ -20,8 +27,9 @@ export function bindTabs(tablist, onSelect) {
 
   if (!('focusGroup' in HTMLElement.prototype)) {
     const items = tabs()
-    items.forEach((button, index) => {
-      button.tabIndex = index === 0 ? 0 : -1
+    const selected = items.find((item) => item.getAttribute('aria-selected') === 'true') || items[0]
+    items.forEach((button) => {
+      button.tabIndex = button === selected ? 0 : -1
     })
     tablist.addEventListener('focusin', (event) => {
       const items = tabs()
@@ -55,15 +63,9 @@ export function bindTabs(tablist, onSelect) {
 
   return {
     setMode(mode) {
-      const tab = tabs().find((item) => item.dataset.mode === mode)
+      const tab = tabs().find((item) => item.dataset[key] === mode)
       if (!tab || tab.getAttribute('aria-selected') === 'true') return
-      for (const item of tabs()) {
-        const on = item === tab
-        item.setAttribute('aria-selected', on ? 'true' : 'false')
-        item.toggleAttribute('focusgroupstart', on)
-        if (!('focusGroup' in HTMLElement.prototype)) item.tabIndex = on ? 0 : -1
-      }
-      document.getElementById('gorunum').setAttribute('aria-labelledby', tab.id)
+      mark(tab)
     }
   }
 }
