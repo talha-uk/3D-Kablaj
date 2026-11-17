@@ -110,9 +110,11 @@ export function mount(hooks) {
     const snap = state.models.find((item) => item.id === ui.inspectId)?.olcu?.cift?.snap || 'yuzey'
     const axisName = { en: 'En', boy: 'Boy', derinlik: 'Derinlik' }
     ipucu.textContent = ui.olcuHedef === 'a'
-      ? `Birinci noktayı ${snapName[snap]} tıkla.`
+      ? (snap === 'kenar' ? 'Kenara tıkla. Nokta en yakın kenara yapışır.' : `Birinci noktayı ${snapName[snap]} tıkla.`)
       : ui.olcuHedef === 'b'
-        ? `İkinci noktayı aynı yüzde, ${snapName[snap]} tıkla. Yükseklik serbest.`
+        ? (snap === 'kenar'
+          ? 'İstediğin kenara tıkla. Karşı kenar da olur. Nokta en yakın kenara yapışır.'
+          : `İkinci noktayı aynı yüzde, ${snapName[snap]} tıkla. Yükseklik serbest.`)
         : ui.olcuHedef === 'merkez'
           ? 'Ortak merkez köşeye tıkla. En, boy ve derinlik bu köşeden çıkar.'
           : axisName[ui.olcuHedef]
@@ -479,7 +481,6 @@ export function mount(hooks) {
     pairTitle.textContent = 'İki nokta'
     const pairNote = document.createElement('p')
     pairNote.className = 'not'
-    pairNote.textContent = 'Kural: iki nokta aynı yüzde olur. Yükseklik serbesttir. Köşe, kenar veya yüzey bu yüzde yapışır. Çizgi yeşildir.'
     const cift = {
       a: Array.isArray(olcu.cift?.a) ? olcu.cift.a : null,
       b: Array.isArray(olcu.cift?.b) ? olcu.cift.b : null,
@@ -489,6 +490,9 @@ export function mount(hooks) {
       plane: olcu.cift?.plane || null,
       y: olcu.cift?.y ?? null
     }
+    pairNote.textContent = cift.snap === 'kenar'
+      ? 'Kural: her tık en yakın kenara yapışır. İki nokta farklı kenarda olabilir, karşı kenar da olur. Çizgi yeşildir.'
+      : 'Kural: iki nokta aynı yüzde olur. Yükseklik serbesttir. Köşe veya yüzey bu yüzde yapışır. Çizgi yeşildir.'
     const modes = document.createElement('div')
     modes.className = 'eylem'
     modes.setAttribute('role', 'group')

@@ -1633,7 +1633,7 @@ export class View {
       return
     }
     const snap = this.hooks.olcuSnap?.() || 'yuzey'
-    const lock = hedef === 'b' ? this.hooks.olcuLock?.() : null
+    const lock = hedef === 'b' && snap !== 'kenar' ? this.hooks.olcuLock?.() : null
     const result = snapReference(
       this.meshTriangles(hit.object, inverse),
       [point.x, point.y, point.z],
@@ -1642,7 +1642,7 @@ export class View {
       lock
     )
     if (!result) {
-      this.hooks.status?.('Aynı yüzeyde seç.')
+      this.hooks.status?.(snap === 'kenar' ? 'Keskin bir kenar bulunamadı.' : 'Aynı yüzeyde seç.')
       return
     }
     this.hooks.onMeasurePoint?.({

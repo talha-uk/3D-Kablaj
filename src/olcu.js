@@ -249,6 +249,14 @@ export function snapModelCorner(triangles, point) {
   return nearest(point, cornerVertices(cornerGraph(triangles)))
 }
 
+// Tıklanan yeri en yakın keskin kenara yapıştırır. İkinci nokta başka kenarda olabilir.
+export function snapNearestEdge(triangles, point) {
+  let edges = featureEdges(triangles)
+  if (!edges.length) edges = boundaryEdges(triangles)
+  if (!edges.length) return null
+  return nearest(point, edges.map((edge) => closestOnSegment(point, edge.a, edge.b)))
+}
+
 // Merkez köşeden giden kenarın öbür köşesi. Mesafe kenarın tamamıdır.
 export function snapEdgeCorner(triangles, point, anchor) {
   if (!anchor) return null
@@ -264,10 +272,15 @@ export function snapEdgeCorner(triangles, point, anchor) {
   return end
 }
 
-// mode: kose, kenar, yuzey. lock ikinci noktayı ilk yüzeye bağlar. Yükseklik serbesttir.
+// mode: kose, kenar, yuzey. Köşe ve yüzey ikinci noktayı ilk yüzeye bağlar. Kenar her tıkı en yakın kenara alır.
 export function snapReference(triangles, point, normal, mode, lock = null) {
   const n = norm(normal)
   const d = dot(n, point)
+  if (mode === 'kenar') {
+    const snapped = snapNearestEdge(triangles, point)
+    if (!snapped) return null
+    return { position: snapped, plane: { normal: n, d }, y: snapped[1] }
+  }
   if (lock?.plane) {
     const pn = norm(lock.plane.normal)
     if (Math.abs(dot(pn, n)) < 0.999) return null
