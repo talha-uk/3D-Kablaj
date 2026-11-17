@@ -2,15 +2,6 @@ import { decimalText, pairCm } from './olcu.js'
 import { componentName, componentPorts, matchCable, measureOf, portName, portTypeOf, typeName } from './state.js'
 import { bindTabs, bindToolbar } from './keys.js'
 
-const HINT = {
-  sec: 'Parçaya veya kabloya tıkla. Boş alanda sürükleyince kamera yerinde kalır, yalnız bakış yönü değişir.',
-  tasi: 'Parçayı oklarla taşı. Herhangi bir portu tutup modelin yüzeyinde kaydır.',
-  dondur: 'Modeli yeşil halkadan çevir. Port seçiliyken portu tutup çevirirsin, halka portu gömmez.',
-  port: 'Yerleşimde veya incelede yüzeye tıkla. RF SMA, RF N, USB 2.0, USB 3.0, USB Type-C, Ethernet veya Güç.',
-  kablo: 'Önce bir port, sonra öteki. Aynı tür bağlanır. SMA–N, Ethernet–Type-C ve USB ara kablosu da olur.',
-  olcu: 'En kırmızı, boy yeşil, derinlik mavi. Mesafe ölç iki noktayı yeşil çizer.'
-}
-
 function button(label, onClick) {
   const element = document.createElement('button')
   element.type = 'button'
@@ -37,7 +28,6 @@ export function mount(hooks) {
   const tabs = bindTabs(document.querySelector('[role="tablist"]'), hooks.onMode)
   bindToolbar(document.querySelector('[role="toolbar"]'))
   const durum = document.getElementById('durum')
-  const ipucu = document.getElementById('ipucu')
   const bos = document.getElementById('bos')
   const modeller = document.getElementById('modeller')
   const parcalar = document.getElementById('parcalar')
@@ -106,24 +96,6 @@ export function mount(hooks) {
         visible.forEach((item, index) => { item.tabIndex = index === 0 ? 0 : -1 })
       }
     }
-    const snapName = { kose: 'köşeye', kenar: 'kenara', yuzey: 'yüzeye' }
-    const snap = state.models.find((item) => item.id === ui.inspectId)?.olcu?.cift?.snap || 'yuzey'
-    const axisName = { en: 'En', boy: 'Boy', derinlik: 'Derinlik' }
-    ipucu.textContent = ui.olcuHedef === 'a'
-      ? (snap === 'kenar' ? 'Kenara tıkla. Nokta en yakın kenara yapışır.' : `Birinci noktayı ${snapName[snap]} tıkla.`)
-      : ui.olcuHedef === 'b'
-        ? (snap === 'kenar'
-          ? 'İstediğin kenara tıkla. Karşı kenar da olur. Nokta en yakın kenara yapışır.'
-          : `İkinci noktayı istediğin yüzde, ${snapName[snap]} tıkla.`)
-        : ui.olcuHedef === 'merkez'
-          ? 'Ortak merkez köşeye tıkla. En, boy ve derinlik bu köşeden çıkar.'
-          : axisName[ui.olcuHedef]
-            ? `${axisName[ui.olcuHedef]} kenarının öbür köşesine tıkla. Mesafe kenarın tamamı olur.`
-            : ui.mode === 'sema'
-              ? 'Sağ alttaki küp bakışı gösterir. Yüz, kenar veya köşe kamerayı o açıya alır. Boş alanda sürükleyince şema kayar.'
-              : ui.mode === 'incele' && (ui.tool === 'sec' || ui.tool === 'tasi' || ui.tool === 'dondur')
-                ? 'Modeli gez. Port işaretle portları açar. Ölçü noktası en, boy ve derinliği açar.'
-                : (HINT[ui.tool] || HINT.sec)
     tabs.setMode(ui.mode)
 
     const showEmpty = ui.mode === 'incele' ? !ui.inspectId : state.components.length === 0
