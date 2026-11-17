@@ -903,8 +903,7 @@ export class View {
       for (const prev of lanes) {
         const dx = prev.mid[0] - mid[0]
         const dz = prev.mid[1] - mid[1]
-        const near = this.sceneSpan() * 0.04
-      if (dx * dx + dz * dz < near * near) lane = Math.max(lane, prev.lane + 1)
+        if (dx * dx + dz * dz < 2.25) lane = Math.max(lane, prev.lane + 1)
       }
       lanes.push({ mid, lane })
       frames.get(cable.id).lane = lane
@@ -928,8 +927,7 @@ export class View {
       } else {
         curve.curveType = 'centripetal'
       }
-      const span = this.sceneSpan()
-      const radius = cableRadius(cable.type, span, this.mode === 'sema')
+      const radius = cableRadius(cable.type)
       const tubular = Math.max(24, Math.round(curve.getLength() * 4))
       const geometry = new THREE.TubeGeometry(curve, tubular, radius, 8, false)
       geometry.userData.owned = true
@@ -950,7 +948,7 @@ export class View {
       mesh.userData.cableId = cable.id
       this.cableRoot.add(mesh)
       this.cableMeshes.set(cable.id, mesh)
-      const pickGeometry = new THREE.TubeGeometry(curve, Math.max(12, Math.round(tubular / 2)), Math.max(radius * 2.2, span * 0.06), 5, false)
+      const pickGeometry = new THREE.TubeGeometry(curve, Math.max(12, Math.round(tubular / 2)), Math.max(radius * 2.2, 0.45), 5, false)
       pickGeometry.userData.owned = true
       const pick = new THREE.Mesh(pickGeometry, new THREE.MeshBasicMaterial())
       pick.visible = false

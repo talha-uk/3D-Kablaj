@@ -494,7 +494,7 @@ const measured = {
 }
 const length = cableLengthCm(measured, measured.cables[0], () => ({ s: 1, x: 0, y: 0, z: 0 }))
 check('kablo santimetreye oturur', length > 9 && length < 14)
-check('kablo model boyuyla kalınlaşır', Math.abs(cableRadius('guc', 12) - 0.36) < 1e-9 && cableRadius('guc', 12) > cableRadius('guc', 1) * 8)
+check('kablo her modelde aynı kalınlıkta', cableRadius('guc') === 0.25 && cableRadius('sma') === 0.13 && cableRadius('ag') === 0.28)
 check('solid metre dosyası santime çevrilir', modelUnit({ boyut: '10 × 10 × 10 mm' }) === 100)
 check('yeni solid santim olarak durur', modelUnit({ boyut: '10 × 10 × 10 mm', birim: 'cm' }) === 1)
 check('glb olduğu gibi durur', modelUnit({ name: 'kutu' }) === 1)

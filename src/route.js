@@ -281,23 +281,22 @@ export function routeThrough(aPos, aNormal, bPos, bNormal, via) {
   return dedupe([aPos, start, via, end, bPos])
 }
 
-export function cableRadius(type, span, schema = false) {
-  const scale = Math.max(Number(span) || 1, 1)
-  const base = (CABLE_RADIUS[type] || 0.008) * scale * 2.5
-  return schema ? base * 0.7 : base
+export function cableRadius(type) {
+  return CABLE_RADIUS[type] || 0.18
 }
 
+// Santimetre yarıçap. Her modelde aynı kılıf.
 export const CABLE_RADIUS = {
-  sma: 0.0055,
-  rf: 0.0055,
-  ntype: 0.014,
-  usb2: 0.007,
-  usb: 0.007,
-  usb3: 0.008,
-  usbc: 0.007,
-  ag: 0.009,
-  guc: 0.012,
-  diger: 0.008
+  sma: 0.13,
+  rf: 0.13,
+  ntype: 0.28,
+  usb2: 0.18,
+  usb: 0.18,
+  usb3: 0.2,
+  usbc: 0.18,
+  ag: 0.28,
+  guc: 0.25,
+  diger: 0.18
 }
 export const SCHEMA_LIFT = {
   sma: 0.008,
