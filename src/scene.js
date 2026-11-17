@@ -220,25 +220,37 @@ function cm(value) {
 }
 
 function addCoaxPlug(group, cableId, nType) {
-  const metal = endMat(nType ? 0xd5dee7 : 0xe4c56a, nType ? 0.82 : 0.74, 0.28)
-  const pinMat = endMat(0xf3d48a, 0.9, 0.16)
-  const ptfe = endMat(0xf4f0e6, 0.02, 0.4)
-  const boot = endMat(0x1a1a1a, 0.08, 0.7)
-  const hexR = cm(nType ? 11 : 4.62)
-  const bodyR = cm(nType ? 7.2 : 3.4)
-  const nutT = cm(nType ? 7 : 5.5)
-  const bodyL = cm(nType ? 12 : 7)
-  const pinR = cm(nType ? 0.8 : 0.64)
-  endMesh(group, ownedCylinder(pinR, pinR, cm(2.4), 10), pinMat, 0, cm(-0.7), 0, cableId)
-  endMesh(group, ownedCylinder(hexR, hexR, nutT, 6), metal, 0, nutT / 2, 0, cableId)
-  endMesh(group, ownedRing(bodyR * 0.35, bodyR * 0.85), ptfe, 0, cm(0.15), 0, cableId)
-  endMesh(group, ownedCylinder(bodyR, bodyR, bodyL, 20), metal, 0, nutT + bodyL / 2, 0, cableId)
-  for (let ring = 0; ring < 4; ring += 1) {
-    endMesh(group, ownedCylinder(bodyR * 1.08, bodyR * 1.08, cm(0.45), 16), metal, 0, nutT + cm(1.2 + ring * 1.3), 0, cableId)
+  const metal = endMat(nType ? 0xd7e0e8 : 0xe8c96a, nType ? 0.84 : 0.76, 0.26)
+  const pinMat = endMat(0xf6d78c, 0.92, 0.14)
+  const boot = endMat(0x161616, 0.06, 0.72)
+  const nutR = cm(nType ? 11 : 5.5)
+  const bodyR = cm(nType ? 6.4 : 3.3)
+  const pinR = cm(nType ? 0.7 : 0.45)
+  const nutCenter = cm(nType ? 5.6 : 4)
+  const nutLen = cm(nType ? 7.2 : 5.2)
+  endMesh(group, ownedCylinder(pinR, pinR, cm(nType ? 4 : 3.2), 12), pinMat, 0, cm(nType ? 1.2 : 0.8), 0, cableId)
+  endMesh(group, ownedCylinder(nutR, nutR, nutLen, 6), metal, 0, nutCenter, 0, cableId)
+  for (let tooth = 0; tooth < 6; tooth += 1) {
+    const angle = (tooth / 6) * Math.PI * 2
+    endMesh(
+      group,
+      ownedBox(cm(0.7), nutLen * 0.92, cm(0.45)),
+      metal,
+      Math.cos(angle) * nutR * 0.92,
+      nutCenter,
+      Math.sin(angle) * nutR * 0.92,
+      cableId
+    )
   }
-  const back = nutT + bodyL
-  endMesh(group, ownedCylinder(bodyR * 0.9, cm(nType ? 6 : 2.2), cm(6), 16), boot, 0, back + cm(2.2), 0, cableId)
-  return back + cm(4.5)
+  const bodyStart = nutCenter + nutLen / 2
+  const bodyLen = cm(nType ? 8 : 6)
+  endMesh(group, ownedCylinder(bodyR, bodyR, bodyLen, 20), metal, 0, bodyStart + bodyLen / 2, 0, cableId)
+  for (let ring = 0; ring < 5; ring += 1) {
+    endMesh(group, ownedCylinder(bodyR * 1.12, bodyR * 1.12, cm(0.4), 18), metal, 0, bodyStart + cm(1 + ring * 1.1), 0, cableId)
+  }
+  const tail = bodyStart + bodyLen
+  endMesh(group, ownedCylinder(bodyR * 1.05, cm(nType ? 5.4 : 2.4), cm(nType ? 8 : 6), 16), boot, 0, tail + cm(nType ? 2.4 : 1.8), 0, cableId)
+  return nType ? 2.36 : 1.74
 }
 
 function addRjPlug(group, cableId) {

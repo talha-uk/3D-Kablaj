@@ -270,8 +270,8 @@ function overPath(start, end, crown) {
 }
 
 export function plugReach(type) {
-  if (type === 'ntype') return 2.35
-  if (type === 'sma' || type === 'rf') return 1.7
+  if (type === 'ntype') return 2.36
+  if (type === 'sma' || type === 'rf') return 1.74
   if (type === 'ag') return 2.2
   if (type === 'usb' || type === 'usb2' || type === 'usb3') return 1.8
   if (type === 'usbc') return 1.5
