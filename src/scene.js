@@ -12,18 +12,6 @@ import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './y
 import { softSnap, softSnapAngle } from './snap.js'
 import { cableRadius, SCHEMA_LIFT, routeClear, routeSchema, routeVia } from './route.js'
 import { cableShown } from './state.js'
-const CABLE_COLOR = {
-  sma: 0xd4af37,
-  rf: 0xd4af37,
-  ntype: 0x8e959b,
-  usb2: 0x1a1a1a,
-  usb: 0x1a1a1a,
-  usb3: 0x1d4ed8,
-  usbc: 0xd5dbe3,
-  ag: 0xf4f4f4,
-  guc: 0xc62828,
-  diger: 0xc4a35a
-}
 
 function ownedBox(width, height, depth) {
   const geometry = new THREE.BoxGeometry(width, height, depth)
@@ -272,26 +260,105 @@ function paintObject(object, bright, dim) {
   })
 }
 
-function jacketTexture(dashed) {
+function jacketCanvas(draw) {
   const canvas = document.createElement('canvas')
-  canvas.width = 64
-  canvas.height = 16
-  const context = canvas.getContext('2d')
-  context.fillStyle = '#ffffff'
-  context.fillRect(0, 0, 64, 16)
-  context.fillStyle = '#000000'
-  if (dashed) {
-    context.clearRect(0, 0, 64, 16)
-    context.fillStyle = '#ffffff'
-    for (let x = 0; x < 64; x += 16) context.fillRect(x, 0, 9, 16)
-  } else {
-    for (let x = 0; x < 64; x += 8) context.fillRect(x, 0, 2, 16)
-  }
+  canvas.width = 256
+  canvas.height = 64
+  draw(canvas.getContext('2d'))
   const texture = new THREE.CanvasTexture(canvas)
   texture.wrapS = THREE.RepeatWrapping
   texture.wrapT = THREE.RepeatWrapping
   texture.colorSpace = THREE.SRGBColorSpace
+  texture.anisotropy = 4
   return texture
+}
+
+function fillJacket(g, color) {
+  g.fillStyle = color
+  g.fillRect(0, 0, 256, 64)
+}
+
+function jacketTextures() {
+  const sma = jacketCanvas((g) => {
+    fillJacket(g, '#8d5a38')
+    g.fillStyle = '#c4895c'
+    g.fillRect(0, 16, 256, 16)
+    g.fillStyle = '#5c3a24'
+    for (let x = 6; x < 256; x += 28) g.fillRect(x, 48, 10, 3)
+  })
+  const rf = jacketCanvas((g) => {
+    fillJacket(g, '#1c1c1c')
+    g.fillStyle = '#3a3a3a'
+    g.fillRect(0, 22, 256, 8)
+    g.fillStyle = '#d5d5d5'
+    for (let x = 10; x < 256; x += 42) g.fillRect(x, 46, 16, 3)
+  })
+  const ntype = jacketCanvas((g) => {
+    fillJacket(g, '#121212')
+    g.fillStyle = '#050505'
+    g.fillRect(0, 6, 256, 5)
+    g.fillRect(0, 52, 256, 5)
+    g.fillStyle = '#2a2a2a'
+    g.fillRect(0, 26, 256, 8)
+  })
+  const usb2 = jacketCanvas((g) => {
+    fillJacket(g, '#242424')
+    g.fillStyle = '#f2f2f2'
+    g.fillRect(0, 29, 256, 5)
+  })
+  const usb3 = jacketCanvas((g) => {
+    fillJacket(g, '#1a1a1a')
+    g.fillStyle = '#1565c0'
+    g.fillRect(0, 24, 256, 12)
+  })
+  const usbc = jacketCanvas((g) => {
+    fillJacket(g, '#2a2a2a')
+    g.lineWidth = 2
+    for (let i = -6; i < 16; i += 1) {
+      g.strokeStyle = i % 2 ? '#8d8d8d' : '#4a4a4a'
+      g.beginPath()
+      g.moveTo(i * 18, 0)
+      g.lineTo(i * 18 + 64, 64)
+      g.stroke()
+      g.beginPath()
+      g.moveTo(i * 18, 64)
+      g.lineTo(i * 18 + 64, 0)
+      g.stroke()
+    }
+  })
+  const ag = jacketCanvas((g) => {
+    fillJacket(g, '#1a4fb5')
+    g.fillStyle = '#4c82e0'
+    g.fillRect(0, 20, 256, 12)
+    g.fillStyle = '#0c2f78'
+    for (let x = 4; x < 256; x += 30) g.fillRect(x, 48, 12, 5)
+  })
+  const guc = jacketCanvas((g) => {
+    fillJacket(g, '#1a1a1a')
+    g.fillStyle = '#070707'
+    g.fillRect(0, 8, 256, 4)
+    g.fillRect(0, 50, 256, 4)
+    g.fillStyle = '#2c2c2c'
+    g.fillRect(0, 26, 256, 8)
+  })
+  const diger = jacketCanvas((g) => {
+    fillJacket(g, '#6e7370')
+    g.fillStyle = '#8e948f'
+    g.fillRect(0, 22, 256, 10)
+  })
+  const look = {
+    sma: { map: sma, roughness: 0.32, metalness: 0.04, repeat: 1.6 },
+    rf: { map: rf, roughness: 0.62, metalness: 0.02, repeat: 1.8 },
+    ntype: { map: ntype, roughness: 0.9, metalness: 0, repeat: 2.4 },
+    usb2: { map: usb2, roughness: 0.55, metalness: 0.02, repeat: 2 },
+    usb: { map: usb2, roughness: 0.55, metalness: 0.02, repeat: 2 },
+    usb3: { map: usb3, roughness: 0.5, metalness: 0.02, repeat: 2 },
+    usbc: { map: usbc, roughness: 0.92, metalness: 0.08, repeat: 0.45 },
+    ag: { map: ag, roughness: 0.8, metalness: 0, repeat: 1.8 },
+    guc: { map: guc, roughness: 0.86, metalness: 0, repeat: 2.2 },
+    diger: { map: diger, roughness: 0.75, metalness: 0, repeat: 2 }
+  }
+  return look
 }
 
 const EDGE_COLOR = { en: 0xe10600, boy: 0x16a34a, derinlik: 0x2563eb }
@@ -391,8 +458,7 @@ export class View {
     this.loader = new GLTFLoader()
     this.raycaster = new THREE.Raycaster()
     this.pointer = new THREE.Vector2()
-    this.solid = jacketTexture(false)
-    this.dashed = jacketTexture(true)
+    this.jackets = jacketTextures()
 
     const pmrem = new THREE.PMREMGenerator(this.renderer)
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
@@ -929,18 +995,19 @@ export class View {
       }
       const radius = cableRadius(cable.type)
       const tubular = Math.max(24, Math.round(curve.getLength() * 4))
-      const geometry = new THREE.TubeGeometry(curve, tubular, radius, 8, false)
+      const geometry = new THREE.TubeGeometry(curve, tubular, radius, 16, false)
       geometry.userData.owned = true
-      const map = (cable.type === 'usb' ? this.dashed : this.solid).clone()
+      const jacket = this.jackets[cable.type] || this.jackets.diger
+      const map = jacket.map.clone()
+      map.userData.owned = true
       map.wrapS = THREE.RepeatWrapping
       map.wrapT = THREE.RepeatWrapping
-      map.repeat.set(Math.max(2, curve.getLength() * 10), 1)
+      map.repeat.set(Math.max(2, curve.getLength() / jacket.repeat), 1)
       const material = remember(new THREE.MeshStandardMaterial({
-        color: CABLE_COLOR[cable.type] || 0xc4a35a,
+        color: 0xffffff,
         map,
-        roughness: cable.type === 'rf' ? 0.45 : 0.68,
-        metalness: cable.type === 'rf' ? 0.35 : 0.08,
-        alphaTest: cable.type === 'usb' ? 0.4 : 0
+        roughness: jacket.roughness,
+        metalness: jacket.metalness
       }))
       const mesh = new THREE.Mesh(geometry, material)
       mesh.castShadow = true
@@ -1037,9 +1104,7 @@ export class View {
   clearCables() {
     for (const child of [...this.cableRoot.children]) {
       if (child.geometry?.userData.owned) child.geometry.dispose()
-      if (child.material?.map && child.material.map !== this.solid && child.material.map !== this.dashed) {
-        child.material.map.dispose()
-      }
+      if (child.material?.map?.userData.owned) child.material.map.dispose()
       if (child.material) child.material.dispose()
       child.removeFromParent()
     }
