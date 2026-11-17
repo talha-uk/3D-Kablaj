@@ -1259,7 +1259,7 @@ export class View {
         started: false
       }
     }
-    if (this.tool !== 'kablo' && this.tool !== 'dondur' && hit?.kind === 'port') {
+    if (this.mode !== 'yerlesim' && this.tool !== 'kablo' && this.tool !== 'dondur' && hit?.kind === 'port') {
       const pivot = this.pivots.get(`${hit.componentId}:${hit.portId}`)
       const visual = pivot && this.portSurface(pivot)
       if (pivot && visual) {
@@ -1571,15 +1571,6 @@ export class View {
     }
     if (this.mode === 'incele' && hit?.kind === 'port' && this.tool !== 'kablo') {
       this.hooks.onSelect?.({ kind: 'port', componentId: 'incele', portId: hit.portId })
-      return
-    }
-    if (this.mode === 'yerlesim' && this.tool === 'port' && hit?.kind === 'component') {
-      if (!this.faceIsExterior(hit) || this.cameraEnclosed(hit.object)) {
-        this.hooks.status?.('Modelin içinden port eklenmez.')
-        return
-      }
-      this.hooks.onSelect?.({ kind: 'component', id: hit.componentId })
-      this.createPlacedPort(hit)
       return
     }
     if (this.tool === 'kablo' && hit?.kind === 'port') {
@@ -2078,7 +2069,7 @@ export class View {
 
   turnObject(hit) {
     if (!hit) return null
-    if (this.selection?.kind === 'port' && hit.kind === 'port' && hit.portId === this.selection.portId) {
+    if (this.mode !== 'yerlesim' && this.selection?.kind === 'port' && hit.kind === 'port' && hit.portId === this.selection.portId) {
       return this.pivots.get(`${hit.componentId}:${hit.portId}`) || null
     }
     if (this.selection?.kind === 'component' && (hit.kind === 'component' || hit.kind === 'port') && hit.componentId === this.selection.id) {

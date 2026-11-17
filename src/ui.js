@@ -101,7 +101,7 @@ export function mount(hooks) {
       const tool = item.dataset.tool
       const inceleOff = tool === 'kablo' || tool === 'sec' || tool === 'tasi' || tool === 'dondur'
       item.hidden = (ui.mode === 'incele' && inceleOff)
-        || (ui.mode === 'sema' && tool === 'port')
+        || (ui.mode !== 'incele' && tool === 'port')
         || (ui.mode !== 'incele' && tool === 'olcu')
       item.setAttribute('aria-pressed', tool === ui.tool ? 'true' : 'false')
       item.setAttribute('aria-disabled', 'false')

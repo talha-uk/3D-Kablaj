@@ -43,7 +43,7 @@ const ui = mount({
   },
   onTool: (tool) => {
     if (tool === 'kablo' && uiState.mode === 'incele') return
-    if (tool === 'port' && uiState.mode === 'sema') return
+    if (tool === 'port' && uiState.mode !== 'incele') return
     if (tool === 'olcu' && uiState.mode !== 'incele') return
     const keepMeasure = tool === 'olcu'
     uiState = { ...uiState, tool, olcuHedef: keepMeasure ? uiState.olcuHedef : null }
@@ -268,7 +268,7 @@ function select(selection) {
   pinInspect()
   const incele = uiState.mode === 'incele'
   uiState = { ...uiState, selection }
-  if (selection?.kind === 'port' && uiState.tool !== 'kablo' && !incele) {
+  if (selection?.kind === 'port' && uiState.tool !== 'kablo' && !incele && uiState.mode !== 'yerlesim') {
     uiState = { ...uiState, tool: 'tasi' }
     view.setTool('tasi')
   }
@@ -336,7 +336,7 @@ async function place(modelId) {
 function applyMode(mode) {
   let tool = uiState.tool
   if (mode === 'incele' && tool === 'kablo') tool = 'sec'
-  if (mode === 'sema' && tool === 'port') tool = 'sec'
+  if (mode !== 'incele' && tool === 'port') tool = 'sec'
   if (mode !== 'incele' && tool === 'olcu') tool = 'sec'
   uiState = { ...uiState, mode, tool }
   view.setMode(mode)
