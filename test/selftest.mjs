@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { SCHEMA_TILT, aimAhead, axisAngles, cameraBasis, cameraPlacement, faceBasis, flyDelta, groundAxes, panFocus, pickView, schemaPose, turnLook } from '../src/fly.js'
+import { SCHEMA_TILT, aimAhead, axisAngles, cameraBasis, cameraPlacement, dollyScale, faceBasis, flyDelta, flySpeed, groundAxes, panFocus, pickView, schemaPose, turnLook, wheelPixels } from '../src/fly.js'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { headingFromQuaternion, portOrientation, portRoll } from '../src/yaw.js'
 import { softSnap, softSnapAngle } from '../src/snap.js'
@@ -143,6 +143,17 @@ check('önden mavi 0, diğerleri 90', frontAngles[0] === 90 && frontAngles[1] ==
 const edgeAngles = axisAngles([1, 0, 1])
 check('ön-sağ kenarı 45', edgeAngles[0] === 45 && edgeAngles[1] === 90 && edgeAngles[2] === 45)
 check('şemada D ekranın sağı', plan.right.x > 0.9)
+const nearSpeed = flySpeed(0.12)
+const framedSpeed = flySpeed(2)
+const homeSpeed = flySpeed(5.4)
+const farSpeed = flySpeed(40)
+const hugeSpeed = flySpeed(200)
+check('yakın çekimde uçuş yavaşlar', nearSpeed > 0.05 && nearSpeed < 0.2)
+check('normal uzaklıkta hız korunur', Math.abs(framedSpeed - 1.4) < 0.02 && Math.abs(homeSpeed - 3.78) < 0.02)
+check('uzaklaşınca hız tavana oturur', farSpeed > homeSpeed && farSpeed < 6.2 && hugeSpeed <= farSpeed + 0.4 && hugeSpeed < 6.2)
+check('çentik zoomu aynı kalır', Math.abs(dollyScale(wheelPixels({ deltaY: 100, deltaMode: 0 })) - 0.95) < 1e-9)
+check('dev tekerlek tavana takılır', wheelPixels({ deltaY: 4000, deltaMode: 0 }) === 140)
+check('sıkıştırma da tavana takılır', wheelPixels({ deltaY: 200, deltaMode: 0, ctrlKey: true }) === 140)
 
 const still = new THREE.PerspectiveCamera(45, 1, 0.1, 100)
 still.position.set(3, 2.4, 4)

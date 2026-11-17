@@ -5,7 +5,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { clone as cloneObject } from 'three/addons/utils/SkeletonUtils.js'
 import { focusFor } from './focus.js'
-import { SCHEMA_TILT, aimAhead, axisAngles, cameraPlacement, flyDelta, groundAxes, panFocus, schemaPose, turnLook } from './fly.js'
+import { SCHEMA_TILT, aimAhead, axisAngles, cameraPlacement, dollyScale, flyDelta, flySpeed, groundAxes, panFocus, schemaPose, turnLook, wheelPixels } from './fly.js'
 import { exteriorMask, nearestMeasureCorner, sameFaceTriangles, snapModelCorner, snapReference, uniqueMeasureCorner } from './olcu.js'
 import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
@@ -417,6 +417,8 @@ export class View {
     this.orbit = new OrbitControls(this.perspective, canvas)
     this.orbit.enableDamping = false
     this.orbit.enableRotate = false
+    this.orbit.minDistance = 0.18
+    this.orbit.maxDistance = 60
     this.orbit.target.set(0, 0.4, 0)
     this.orbit.addEventListener('change', () => this.requestRender())
 
@@ -485,7 +487,7 @@ export class View {
     canvas.addEventListener('auxclick', (event) => event.preventDefault())
     canvas.addEventListener('pointermove', (event) => this.onMove(event))
     window.addEventListener('pointerup', (event) => this.onUp(event))
-    canvas.addEventListener('wheel', (event) => this.onWheel(event), { passive: false })
+    canvas.addEventListener('wheel', (event) => this.onWheel(event), { passive: false, capture: true })
     canvas.addEventListener('contextmenu', (event) => event.preventDefault())
 
     this.resize()
@@ -539,7 +541,7 @@ export class View {
     const span = this.mode === 'sema'
       ? this.viewHalf / Math.max(this.ortho.zoom, 0.2)
       : this.perspective.position.distanceTo(this.orbit.target)
-    const step = Math.max(0.35, span * 0.7) * (this.flyFast ? 2.4 : 1) * dt
+    const step = flySpeed(span) * (this.flyFast ? 2.4 : 1) * dt
     const delta = flyDelta(camera, { forward, strafe, lift }, step, this.mode === 'sema')
     if (delta.lengthSq() < 1e-10) return
     if (this.mode === 'sema') {
@@ -1359,15 +1361,15 @@ export class View {
   }
 
   dragLook(event) {
-    const dx = event.clientX - this.lookDrag.x
-    const dy = event.clientY - this.lookDrag.y
+    const dx = Math.max(-64, Math.min(64, event.clientX - this.lookDrag.x))
+    const dy = Math.max(-64, Math.min(64, event.clientY - this.lookDrag.y))
     this.lookDrag.x = event.clientX
     this.lookDrag.y = event.clientY
     if (dx === 0 && dy === 0) return
     const camera = this.perspective
     const dist = Math.max(0.5, camera.position.distanceTo(this.orbit.target))
     const height = Math.max(this.canvas.clientHeight, 1)
-    const step = (Math.PI * 2) / height
+    const step = (Math.PI * 2) / Math.max(height, 700)
     turnLook(camera, dx * step, dy * step)
     aimAhead(camera, this.orbit.target, dist)
     this.orbit.update()
@@ -1909,13 +1911,26 @@ export class View {
   onWheel(event) {
     if (this.readCube(event)) {
       event.preventDefault()
+      event.stopPropagation()
       return
     }
-    if (this.mode !== 'sema') return
+    const pixels = wheelPixels(event)
+    if (!pixels) return
+    if (this.mode === 'sema') {
+      event.preventDefault()
+      const ticks = Math.min(Math.abs(pixels) / 100, 1.4)
+      const factor = Math.pow(pixels > 0 ? 0.92 : 1.08, ticks)
+      this.ortho.zoom = Math.min(16, Math.max(0.2, this.ortho.zoom * factor))
+      this.ortho.updateProjectionMatrix()
+      this.requestRender()
+      return
+    }
+    if (!this.orbit.enabled) return
     event.preventDefault()
-    const factor = event.deltaY > 0 ? 0.92 : 1.08
-    this.ortho.zoom = Math.min(16, Math.max(0.2, this.ortho.zoom * factor))
-    this.ortho.updateProjectionMatrix()
+    event.stopImmediatePropagation()
+    const scale = dollyScale(pixels)
+    if (pixels > 0) this.orbit.dollyOut(scale)
+    else this.orbit.dollyIn(scale)
     this.requestRender()
   }
 

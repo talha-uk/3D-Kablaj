@@ -37,6 +37,29 @@ export function flyDelta(camera, input, distance, planar = false) {
   return move.normalize().multiplyScalar(distance)
 }
 
+// Birim/saniye. Dizine kadar uzaklıkla doğrusal; sonrası tavana yaslanır.
+// span 2 → 1.4, span 5.4 → 3.78, span 40 → ~5.7.
+export function flySpeed(span) {
+  const distance = Math.max(0, Number(span) || 0)
+  const knee = 6
+  const extra = distance > knee ? 2.4 * (1 - Math.exp(-(distance - knee) / 14)) : 0
+  return Math.max(0.08, (Math.min(distance, knee) + extra) * 0.7)
+}
+
+// Bir çentik yaklaşık 100 piksel. Daha büyük bir olay tavana takılır.
+export function wheelPixels(event) {
+  let delta = Number(event?.deltaY) || 0
+  if (event?.deltaMode === 1) delta *= 40
+  else if (event?.deltaMode === 2) delta *= 100
+  if (event?.ctrlKey) delta *= 8
+  if (!Number.isFinite(delta) || delta === 0) return 0
+  return Math.sign(delta) * Math.min(Math.abs(delta), 140)
+}
+
+export function dollyScale(pixels) {
+  return Math.pow(0.95, Math.abs(pixels) * 0.01)
+}
+
 // yawDelta sağa, pitchDelta aşağı. Konum değişmez. YXZ, roll sıfır.
 export function turnLook(camera, yawDelta, pitchDelta) {
   const euler = new THREE.Euler(0, 0, 0, 'YXZ')
