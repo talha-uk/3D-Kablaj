@@ -451,7 +451,7 @@ ul { list-style: none; margin: 0.4rem 0 0; padding: 0; display: flex; flex-direc
   background: var(--bg);
 }
 
-.olcu-merkez { grid-template-columns: auto 1fr auto; }
+.olcu-merkez { grid-template-columns: auto 1fr auto auto; }
 
 .olcu-oto {
   display: flex;

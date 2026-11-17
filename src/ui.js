@@ -325,7 +325,12 @@ export function mount(hooks) {
     merkezAd.textContent = 'Merkez'
     const merkezBtn = hedefButton('merkez', 'Nokta')
     merkezBtn.setAttribute('aria-label', 'Merkez belirle')
-    merkez.append(merkezRenk, merkezAd, merkezBtn)
+    const removeMerkez = button('Kaldır', () => {
+      save({ kenar: { merkez: null, en: null, boy: null, derinlik: null } })
+    })
+    removeMerkez.setAttribute('aria-label', 'Merkez noktasını kaldır')
+    removeMerkez.disabled = !kenar.merkez
+    merkez.append(merkezRenk, merkezAd, merkezBtn, removeMerkez)
     const autoLabel = document.createElement('label')
     autoLabel.className = 'olcu-oto'
     autoLabel.htmlFor = 'olcu-otomatik'

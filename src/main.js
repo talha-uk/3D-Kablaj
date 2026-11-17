@@ -102,7 +102,12 @@ const ui = mount({
     commit({ ...emptyState(), models: state.models }, 'Yeni düzenek.')
   },
   onDownload: () => downloadProject(state),
-  onOlcu: (modelId, olcu) => applyMeasure(modelId, withAutoPoints(olcu), 'kenar'),
+  onOlcu: (modelId, olcu) => {
+    if (!olcu.kenar?.merkez && ['merkez', 'en', 'boy', 'derinlik'].includes(uiState.olcuHedef)) {
+      uiState = { ...uiState, olcuHedef: null }
+    }
+    applyMeasure(modelId, withAutoPoints(olcu), 'kenar')
+  },
   onOlcuPair: (modelId, olcu) => {
     if (!olcu.cift?.a && !olcu.cift?.b && (uiState.olcuHedef === 'a' || uiState.olcuHedef === 'b')) {
       uiState = { ...uiState, olcuHedef: null }
