@@ -1221,7 +1221,7 @@ export class View {
     if (!hit) return null
     const data = hit.object.userData
     if (data.kind === 'submesh') return { kind: 'submesh', mesh: hit.object, point: hit.point, face: hit.face, faceIndex: hit.faceIndex, object: hit.object }
-    return { ...data, point: hit.point, face: hit.face, object: hit.object }
+    return { ...data, point: hit.point, face: hit.face, faceIndex: hit.faceIndex, object: hit.object }
   }
 
   hitKey(hit) {
@@ -1556,7 +1556,13 @@ export class View {
         this.createCornerMeasure(hit, hedef)
         return
       }
-      if (this.tool === 'port') this.createModelPort(hit)
+      if (this.tool === 'port') {
+        if (this.cameraEnclosed(hit.object)) {
+          this.hooks.status?.('Modelin içinden port eklenmez.')
+          return
+        }
+        this.createModelPort(hit)
+      }
       if (this.tool === 'olcu') this.hooks.status?.('Sağdan merkez, kenar ucu veya mesafe belirle.')
       return
     }
@@ -1565,6 +1571,10 @@ export class View {
       return
     }
     if (this.mode === 'yerlesim' && this.tool === 'port' && hit?.kind === 'component') {
+      if (!this.faceIsExterior(hit) || this.cameraEnclosed(hit.object)) {
+        this.hooks.status?.('Modelin içinden port eklenmez.')
+        return
+      }
       this.hooks.onSelect?.({ kind: 'component', id: hit.componentId })
       this.createPlacedPort(hit)
       return
@@ -1678,6 +1688,40 @@ export class View {
     const outward = hit.point.clone().sub(center)
     if (outward.lengthSq() < 1e-12) return true
     return this.activeCamera().position.clone().sub(hit.point).dot(outward) > 0
+  }
+
+  cameraEnclosed(object) {
+    if (!object) return false
+    const box = new THREE.Box3().setFromObject(object)
+    const camera = this.activeCamera().position
+    if (box.isEmpty() || !box.containsPoint(camera)) return false
+    const dirs = [
+      new THREE.Vector3(1, 0, 0),
+      new THREE.Vector3(-1, 0, 0),
+      new THREE.Vector3(0, 1, 0),
+      new THREE.Vector3(0, -1, 0),
+      new THREE.Vector3(0, 0, 1),
+      new THREE.Vector3(0, 0, -1)
+    ]
+    let blocked = 0
+    for (const dir of dirs) {
+      this.raycaster.set(camera, dir)
+      const hit = this.raycaster.intersectObject(object, false).find((item) => item.face)
+      if (!hit) continue
+      const exit = this.rayExit(box, camera, dir)
+      if (hit.distance < exit - 1e-4) blocked += 1
+    }
+    return blocked >= 5
+  }
+
+  rayExit(box, origin, dir) {
+    let limit = Infinity
+    for (const axis of ['x', 'y', 'z']) {
+      if (Math.abs(dir[axis]) < 1e-8) continue
+      const bound = dir[axis] > 0 ? box.max[axis] : box.min[axis]
+      limit = Math.min(limit, (bound - origin[axis]) / dir[axis])
+    }
+    return limit
   }
 
   meshTriangles(mesh, inverse) {
@@ -1967,7 +2011,7 @@ export class View {
     }
     this.raycaster.setFromCamera(this.pointer, this.activeCamera())
     const hit = this.raycaster.intersectObject(drag.visual, true).find((item) => item.face)
-    if (!hit) return
+    if (!hit || !this.faceIsExterior(hit) || this.cameraEnclosed(hit.object)) return
     const align = drag.pivot.parent
     const inverse = align.matrixWorld.clone().invert()
     const point = hit.point.clone().applyMatrix4(inverse)
