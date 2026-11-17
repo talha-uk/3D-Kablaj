@@ -6,7 +6,7 @@ import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
 import { routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
 import { addCable, addComponent, addModel, addPort, cableShown, emptyState, matchCable, uid } from '../src/state.js'
-import { cableLengthCm, decimalText, pairCm, portWorld, scaleFromBox, scaleFromEdges, scaleFromPair, snapEdgeCorner, snapModelCorner, snapReference } from '../src/olcu.js'
+import { cableLengthCm, decimalText, pairCm, placeMeasurePoint, portWorld, scaleFromBox, scaleFromEdges, scaleFromPair, snapEdgeCorner, snapModelCorner, snapReference } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
 import fs from 'node:fs'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
@@ -332,6 +332,27 @@ const nearEdge = snapReference(side, [0, 0.4, 0.15], [1, 0, 0], 'kenar')
 const farEdge = snapReference(side, [0, 0.7, 1.85], [1, 0, 0], 'kenar', { plane: { normal: [0, 1, 0], d: 2 } })
 check('kenar tıkı en yakın kenara yapışır', nearEdge && Math.abs(nearEdge.position[2]) < 1e-6 && Math.abs(nearEdge.position[1] - 0.4) < 1e-6)
 check('karşı kenar seçilir', farEdge && Math.abs(farEdge.position[2] - 2) < 1e-6 && Math.abs(farEdge.position[1] - 0.7) < 1e-6)
+const held = {
+  points: [],
+  en: null,
+  boy: null,
+  derinlik: null,
+  kenar: { merkez: [0, 0, 0], en: [2, 0, 0], boy: null, derinlik: null },
+  cift: { a: [0, 0, 0], b: [0, 1, 0], snap: 'yuzey', plane: { normal: [1, 0, 0], d: 0 }, y: 0, cm: null, color: '#2f8f4e' }
+}
+const heldStill = placeMeasurePoint(held, { hedef: 'merkez', position: [0, 0, 0], drag: true })
+check('aynı köşede uç durur', heldStill.kenar.en && heldStill.kenar.en[0] === 2)
+const jumped = placeMeasurePoint(held, { hedef: 'merkez', position: [0, 2, 0], drag: true })
+check('merkez değişince uç düşer', jumped.kenar.en == null && jumped.kenar.merkez[1] === 2)
+const sameFace = placeMeasurePoint(held, { hedef: 'a', position: [0, 0.4, 0.2], plane: { normal: [1, 0, 0], d: 0 }, y: 0.4, drag: true })
+check('aynı yüzde ikinci nokta durur', sameFace.cift.b && sameFace.cift.b[1] === 1)
+const otherFaceMove = placeMeasurePoint(held, { hedef: 'a', position: [1, 2, 0], plane: { normal: [0, 1, 0], d: 2 }, y: 2, drag: true })
+check('yüz değişince ikinci nokta düşer', otherFaceMove.cift.b == null)
+const edgeMove = placeMeasurePoint(
+  { ...held, cift: { ...held.cift, snap: 'kenar' } },
+  { hedef: 'a', position: [3, 0, 0], plane: { normal: [0, 0, 1], d: 0 }, y: 0, drag: true }
+)
+check('kenar modunda ikinci nokta durur', edgeMove.cift.b && edgeMove.cift.b[1] === 1)
 check('ölçü ondalığı tek nokta', decimalText('1.2.3') === '1.23')
 check('ölçeklenmiş gövde 10 cm', Math.abs(pairCm([0, 0, 0], [10, 0, 0], fitS, bodyScale) - 10) < 1e-6)
 check('SMA ucu 11 cm de kalır', Math.abs(pairCm([0, 0, 0], [11, 0, 0], fitS, bodyScale) - 11) < 1e-6)

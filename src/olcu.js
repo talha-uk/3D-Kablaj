@@ -44,6 +44,66 @@ function vertexKey(v) {
   return v.map((value) => Math.round(value * 1e5) / 1e5).join(',')
 }
 
+function sameVec(a, b) {
+  return Array.isArray(a) && Array.isArray(b) && vertexKey(a) === vertexKey(b)
+}
+
+function samePlane(a, b) {
+  if (!a?.normal || !b?.normal) return false
+  const align = a.normal[0] * b.normal[0] + a.normal[1] * b.normal[1] + a.normal[2] * b.normal[2]
+  if (Math.abs(align) < 0.999) return false
+  const d = align < 0 ? -b.d : b.d
+  return Math.abs(a.d - d) < 1e-3
+}
+
+// Seçili noktayı yeni yerine yazar. Sürüklerken bağlı uç kuralı bozulursa düşer.
+export function placeMeasurePoint(olcu, point) {
+  const next = {
+    points: olcu.points || [],
+    en: olcu.en ?? null,
+    boy: olcu.boy ?? null,
+    derinlik: olcu.derinlik ?? null,
+    kenar: {
+      merkez: olcu.kenar?.merkez ?? null,
+      en: olcu.kenar?.en ?? null,
+      boy: olcu.kenar?.boy ?? null,
+      derinlik: olcu.kenar?.derinlik ?? null
+    },
+    cift: olcu.cift ? { ...olcu.cift } : null
+  }
+  if (point.hedef === 'a' || point.hedef === 'b') {
+    const cift = {
+      a: Array.isArray(next.cift?.a) ? next.cift.a : null,
+      b: Array.isArray(next.cift?.b) ? next.cift.b : null,
+      cm: next.cift?.cm ?? null,
+      color: next.cift?.color || '#2f8f4e',
+      snap: next.cift?.snap || 'yuzey',
+      plane: next.cift?.plane || null,
+      y: next.cift?.y ?? null
+    }
+    cift[point.hedef] = point.position
+    if (point.hedef === 'a') {
+      const faceChanged = cift.b && !samePlane(cift.plane, point.plane)
+      if (!point.drag || (faceChanged && cift.snap !== 'kenar')) cift.b = null
+      cift.plane = point.plane
+      cift.y = point.y
+    }
+    next.cift = cift
+    return next
+  }
+  if (point.hedef === 'merkez' || point.hedef === 'en' || point.hedef === 'boy' || point.hedef === 'derinlik') {
+    if (point.hedef === 'merkez') {
+      const moved = !sameVec(next.kenar.merkez, point.position)
+      next.kenar = { ...next.kenar, merkez: point.position }
+      if (!point.drag || moved) next.kenar = { ...next.kenar, en: null, boy: null, derinlik: null }
+    } else {
+      next.kenar = { ...next.kenar, [point.hedef]: point.position }
+    }
+    return next
+  }
+  return next
+}
+
 function sameHeight(v, y) {
   return y == null || Math.abs(v[1] - y) < 1e-3
 }

@@ -1,6 +1,6 @@
 import { View } from './scene.js'
 import { mount } from './ui.js'
-import { cableLengthCm, scaleFromEdges, scaleFromPair } from './olcu.js'
+import { cableLengthCm, placeMeasurePoint, scaleFromEdges, scaleFromPair } from './olcu.js'
 import {
   addCable,
   matchCable,
@@ -33,6 +33,7 @@ let past = []
 let future = []
 let uiState = { mode: 'yerlesim', tool: 'sec', cableType: 'guc', selection: null, inspectId: null, olcuHedef: null }
 let poseMark = false
+let measureUndo = false
 
 const ui = mount({
   onMode: (mode) => {
@@ -179,47 +180,18 @@ const view = new View(document.getElementById('sahne'), {
     const modelId = uiState.inspectId
     if (!modelId) return
     const model = state.models.find((item) => item.id === modelId)
-    const olcu = measureOf(model)
-    if (point.hedef === 'a' || point.hedef === 'b') {
-      const cift = {
-        a: Array.isArray(olcu.cift?.a) ? olcu.cift.a : null,
-        b: Array.isArray(olcu.cift?.b) ? olcu.cift.b : null,
-        cm: olcu.cift?.cm ?? null,
-        color: olcu.cift?.color || '#2f8f4e',
-        snap: olcu.cift?.snap || 'yuzey',
-        plane: olcu.cift?.plane || null,
-        y: olcu.cift?.y ?? null
-      }
-      cift[point.hedef] = point.position
-      if (point.hedef === 'a') {
-        cift.b = null
-        cift.plane = point.plane
-        cift.y = point.y
-      }
-      olcu.cift = cift
-      uiState = { ...uiState, olcuHedef: point.hedef === 'a' ? 'b' : null }
-      applyMeasure(modelId, olcu, 'cift')
+    const olcu = placeMeasurePoint(measureOf(model), point)
+    const source = point.hedef === 'a' || point.hedef === 'b' ? 'cift' : 'kenar'
+    if (point.drag) {
+      previewMeasure(modelId, olcu, source)
       return
     }
-    if (point.hedef === 'merkez' || point.hedef === 'en' || point.hedef === 'boy' || point.hedef === 'derinlik') {
-      const kenar = {
-        merkez: olcu.kenar.merkez,
-        en: olcu.kenar.en,
-        boy: olcu.kenar.boy,
-        derinlik: olcu.kenar.derinlik
-      }
-      if (point.hedef === 'merkez') {
-        kenar.merkez = point.position
-        kenar.en = null
-        kenar.boy = null
-        kenar.derinlik = null
-      } else {
-        kenar[point.hedef] = point.position
-      }
-      olcu.kenar = kenar
-      uiState = { ...uiState, olcuHedef: null }
-      applyMeasure(modelId, olcu, 'kenar')
-    }
+    uiState = { ...uiState, olcuHedef: point.hedef === 'a' ? 'b' : null }
+    applyMeasure(modelId, olcu, source)
+  },
+  onMeasureDragEnd: () => {
+    if (measureUndo) ui.status('Ölçü güncellendi.')
+    measureUndo = false
   },
   cableOk: (ends) => {
     const a = portTypeOf(state, ends.a.componentId, ends.a.portId)
@@ -359,7 +331,7 @@ function applyMode(mode) {
   view.setTool(tool)
 }
 
-function applyMeasure(modelId, olcu, source) {
+function measureScale(modelId, olcu, source) {
   const fit = view.fitOf(modelId)
   const model = state.models.find((item) => item.id === modelId)
   let olcek = null
@@ -368,7 +340,29 @@ function applyMeasure(modelId, olcu, source) {
   } else if (source === 'kenar') {
     olcek = scaleFromEdges(olcu.kenar, olcu, fit?.s)
   }
-  commit(writeMeasure(state, modelId, olcu, olcek ?? model?.olcek ?? null), 'Ölçü güncellendi.')
+  return { model, olcek: olcek ?? model?.olcek ?? null }
+}
+
+function applyMeasure(modelId, olcu, source) {
+  const { olcek } = measureScale(modelId, olcu, source)
+  commit(writeMeasure(state, modelId, olcu, olcek), 'Ölçü güncellendi.')
+}
+
+function previewMeasure(modelId, olcu, source) {
+  const model = state.models.find((item) => item.id === modelId)
+  const before = JSON.stringify(model?.olcu || null)
+  const { olcek } = measureScale(modelId, olcu, source)
+  const next = writeMeasure(state, modelId, olcu, olcek)
+  const after = JSON.stringify(next.models.find((item) => item.id === modelId)?.olcu || null)
+  if (before === after) return
+  if (!measureUndo) {
+    past.push(structuredClone(state))
+    if (past.length > 40) past.shift()
+    future = []
+    measureUndo = true
+  }
+  state = next
+  publish(true)
 }
 
 function undo() {

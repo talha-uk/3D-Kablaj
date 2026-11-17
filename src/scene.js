@@ -301,13 +301,13 @@ const PAIR_COLOR = 0x2f8f4e
 function measureDots(record) {
   const dots = []
   const kenar = record?.olcu?.kenar
-  if (Array.isArray(kenar?.merkez)) dots.push({ position: kenar.merkez, color: CENTER_COLOR })
+  if (Array.isArray(kenar?.merkez)) dots.push({ key: 'merkez', position: kenar.merkez, color: CENTER_COLOR })
   for (const key of ['en', 'boy', 'derinlik']) {
-    if (Array.isArray(kenar?.[key])) dots.push({ position: kenar[key], color: EDGE_COLOR[key] })
+    if (Array.isArray(kenar?.[key])) dots.push({ key, position: kenar[key], color: EDGE_COLOR[key] })
   }
   const cift = record?.olcu?.cift
-  if (Array.isArray(cift?.a)) dots.push({ position: cift.a, color: PAIR_COLOR })
-  if (Array.isArray(cift?.b)) dots.push({ position: cift.b, color: PAIR_COLOR })
+  if (Array.isArray(cift?.a)) dots.push({ key: 'a', position: cift.a, color: PAIR_COLOR })
+  if (Array.isArray(cift?.b)) dots.push({ key: 'b', position: cift.b, color: PAIR_COLOR })
   return dots
 }
 
@@ -351,6 +351,7 @@ export class View {
     this.down = null
     this.pan = null
     this.bendDrag = null
+    this.pointDrag = null
     this.viewHalf = 4
 
     this.renderer = new THREE.WebGLRenderer({
@@ -471,7 +472,7 @@ export class View {
     window.addEventListener('pointerup', () => {
       this.transform.enabled = true
       this.holdingGizmo = false
-      if (!this.transform.dragging && !this.bendDrag && !this.surfaceDrag && this.mode !== 'sema') this.orbit.enabled = true
+      if (!this.transform.dragging && !this.bendDrag && !this.surfaceDrag && !this.pointDrag && this.mode !== 'sema') this.orbit.enabled = true
     })
     canvas.addEventListener('pointerdown', (event) => {
       if (event.button === 1) {
@@ -739,7 +740,7 @@ export class View {
     const record = this.state.models.find((item) => item.id === component.modelId)
     const ports = [...(record?.ports || []), ...(component.ports || [])]
     for (const port of ports) align.add(this.makePort(component, port, fit.s))
-    this.addMeasureDots(align, measureDots(record), fit.s)
+    this.addMeasureDots(align, measureDots(record), fit.s, false)
     this.addMeasureEdges(align, record?.olcu?.kenar)
     this.addMeasureLine(align, record?.olcu?.cift)
     const group = new THREE.Group()
@@ -834,7 +835,7 @@ export class View {
     })
     align.add(visual)
     for (const port of ports) align.add(this.makePort({ id: 'incele' }, port, fit.s))
-    this.addMeasureDots(align, measureDots(record), fit.s)
+    this.addMeasureDots(align, measureDots(record), fit.s, true)
     this.addMeasureEdges(align, kenar)
     this.addMeasureLine(align, cift)
     this.inspectRoot.add(align)
@@ -1212,6 +1213,10 @@ export class View {
       if (!chosen) chosen = hit
       if (!portHit && hit.object.userData.kind === 'port') portHit = hit
     }
+    if (chosen?.object.userData.kind === 'olcu') {
+      const data = chosen.object.userData
+      return { ...data, point: chosen.point, face: chosen.face, object: chosen.object }
+    }
     const hit = portHit && chosen && portHit.distance <= chosen.distance + 0.04 ? portHit : chosen
     if (!hit) return null
     const data = hit.object.userData
@@ -1235,6 +1240,13 @@ export class View {
     if (this.gizmoHandleHit()) return
     const hit = this.firstHit()
     this.down = { x: event.clientX, y: event.clientY, hit }
+    if (this.mode === 'incele' && hit?.kind === 'olcu' && hit.olcuKey) {
+      this.pointDrag = { key: hit.olcuKey, moved: false }
+      this.orbit.enabled = false
+      this.canvas.style.cursor = 'grabbing'
+      if (event.pointerId != null) this.canvas.setPointerCapture?.(event.pointerId)
+      return
+    }
     if (this.tool === 'dondur' && this.turnObject(hit)) {
       const object = this.turnObject(hit)
       this.yawDrag = {
@@ -1280,7 +1292,13 @@ export class View {
       this.setHover(null)
       return
     }
-    if (this.canvas.style.cursor === 'pointer') this.canvas.style.cursor = ''
+    if (this.pointDrag && this.down) {
+      if (Math.hypot(event.clientX - this.down.x, event.clientY - this.down.y) > 3) this.pointDrag.moved = true
+      if (this.pointDrag.moved) this.dragMeasurePoint()
+      this.canvas.style.cursor = 'grabbing'
+      return
+    }
+    if (this.canvas.style.cursor === 'pointer' || this.canvas.style.cursor === 'grab') this.canvas.style.cursor = ''
     if (this.surfaceDrag && this.down) {
       this.dragPortOnSurface(event)
       return
@@ -1310,7 +1328,7 @@ export class View {
         this.pan = { x: event.clientX, y: event.clientY, fx: this.schemaFocus.x, fz: this.schemaFocus.z }
       }
     }
-    if (this.down && this.mode !== 'sema' && !this.surfaceDrag && !this.yawDrag && !this.bendDrag && !this.holdingGizmo && !this.transform.dragging) {
+    if (this.down && this.mode !== 'sema' && !this.surfaceDrag && !this.yawDrag && !this.bendDrag && !this.pointDrag && !this.holdingGizmo && !this.transform.dragging) {
       if (Math.hypot(event.clientX - this.down.x, event.clientY - this.down.y) > 4) {
         this.lookDrag = { x: event.clientX, y: event.clientY }
         this.orbit.enabled = false
@@ -1318,6 +1336,7 @@ export class View {
     }
     if (this.down || this.transform.dragging) return
     const hit = this.firstHit()
+    if (hit?.kind === 'olcu') this.canvas.style.cursor = 'grab'
     const hover = hit ? { kind: hit.kind, componentId: hit.componentId, cableId: hit.cableId, portId: hit.portId, mesh: hit.mesh } : null
     this.setHover(hover)
   }
@@ -1488,6 +1507,17 @@ export class View {
       this.pan = null
       return
     }
+    if (this.pointDrag) {
+      const moved = this.pointDrag.moved
+      this.pointDrag = null
+      if (this.mode !== 'sema') this.orbit.enabled = true
+      this.canvas.style.cursor = ''
+      this.down = null
+      this.pan = null
+      this.lookDrag = null
+      if (moved) this.hooks.onMeasureDragEnd?.()
+      return
+    }
     if (this.bendDrag) {
       if (this.bendDrag.moved) this.hooks.onBend?.(this.bendDrag.id, this.bendDrag.vias, this.mode === 'sema')
       this.bendDrag = null
@@ -1557,7 +1587,7 @@ export class View {
     return this.models.get(modelId)?.fit || null
   }
 
-  addMeasureDots(align, dots, fitScale) {
+  addMeasureDots(align, dots, fitScale, pickable) {
     for (const dot of dots) {
       const geometry = new THREE.SphereGeometry(0.006 / fitScale, 10, 8)
       geometry.userData.owned = true
@@ -1566,7 +1596,16 @@ export class View {
       mesh.renderOrder = 10
       mesh.raycast = () => {}
       mesh.userData.kind = 'olcu'
+      mesh.userData.olcuKey = dot.key
       align.add(mesh)
+      if (!pickable) continue
+      const grip = new THREE.SphereGeometry(0.022 / fitScale, 8, 6)
+      grip.userData.owned = true
+      const hit = new THREE.Mesh(grip, new THREE.MeshBasicMaterial({ visible: false, depthTest: false }))
+      hit.position.fromArray(dot.position)
+      hit.userData.kind = 'olcu'
+      hit.userData.olcuKey = dot.key
+      align.add(hit)
     }
   }
 
@@ -1620,7 +1659,23 @@ export class View {
     return triangles
   }
 
-  createMeasurePoint(hit, hedef) {
+  surfaceUnderPointer() {
+    this.raycaster.setFromCamera(this.pointer, this.activeCamera())
+    const hits = this.raycaster.intersectObject(this.inspectRoot, true)
+    const hit = hits.find((item) => item.object.userData.kind === 'submesh')
+    if (!hit) return null
+    return { kind: 'submesh', mesh: hit.object, point: hit.point, face: hit.face, object: hit.object }
+  }
+
+  dragMeasurePoint() {
+    const hit = this.surfaceUnderPointer()
+    if (!hit?.face) return
+    const key = this.pointDrag.key
+    if (key === 'a' || key === 'b') this.createMeasurePoint(hit, key, true)
+    else this.createCornerMeasure(hit, key, true)
+  }
+
+  createMeasurePoint(hit, hedef, drag = false) {
     const align = this.inspectRoot.children[0]
     if (!align || !hit.face || !hit.object?.geometry) return
     const inverse = align.matrixWorld.clone().invert()
@@ -1628,7 +1683,8 @@ export class View {
     const normal = hit.face.normal.clone().transformDirection(inverse).normalize()
     if (hedef !== 'a' && hedef !== 'b') {
       this.hooks.onMeasurePoint?.({
-        position: [point.x, point.y, point.z]
+        position: [point.x, point.y, point.z],
+        drag
       })
       return
     }
@@ -1642,18 +1698,19 @@ export class View {
       lock
     )
     if (!result) {
-      this.hooks.status?.(snap === 'kenar' ? 'Keskin bir kenar bulunamadı.' : 'Aynı yüzeyde seç.')
+      if (!drag) this.hooks.status?.(snap === 'kenar' ? 'Keskin bir kenar bulunamadı.' : 'Aynı yüzeyde seç.')
       return
     }
     this.hooks.onMeasurePoint?.({
       position: result.position,
       hedef,
       plane: result.plane,
-      y: result.y
+      y: result.y,
+      drag
     })
   }
 
-  createCornerMeasure(hit, hedef) {
+  createCornerMeasure(hit, hedef, drag = false) {
     const align = this.inspectRoot.children[0]
     if (!align || !hit.object?.geometry) return
     const inverse = align.matrixWorld.clone().invert()
@@ -1663,23 +1720,23 @@ export class View {
     if (hedef === 'merkez') {
       const snapped = snapModelCorner(triangles, raw)
       if (!snapped) {
-        this.hooks.status?.('Keskin bir köşe bulunamadı.')
+        if (!drag) this.hooks.status?.('Keskin bir köşe bulunamadı.')
         return
       }
-      this.hooks.onMeasurePoint?.({ position: snapped, hedef })
+      this.hooks.onMeasurePoint?.({ position: snapped, hedef, drag })
       return
     }
     const anchor = this.hooks.olcuAnchor?.()
     if (!anchor) {
-      this.hooks.status?.('Önce merkez köşeyi seç.')
+      if (!drag) this.hooks.status?.('Önce merkez köşeyi seç.')
       return
     }
     const snapped = snapEdgeCorner(triangles, raw, anchor)
     if (!snapped) {
-      this.hooks.status?.('Merkezden giden kenarın öbür köşesine tıkla.')
+      if (!drag) this.hooks.status?.('Merkezden giden kenarın öbür köşesine tıkla.')
       return
     }
-    this.hooks.onMeasurePoint?.({ position: snapped, hedef })
+    this.hooks.onMeasurePoint?.({ position: snapped, hedef, drag })
   }
 
   createModelPort(hit) {
