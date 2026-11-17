@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { headingFromQuaternion, portOrientation, portRoll } from '../src/yaw.js'
 import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
-import { cableRadius, CABLE_OD_MM, routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
+import { cableRadius, CABLE_OD_MM, plugReach, routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
 import { addCable, addComponent, addModel, addPort, cableShown, emptyState, matchCable, uid } from '../src/state.js'
 import { cableLengthCm, decimalText, exteriorMask, modelUnit, nearestMeasureCorner, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference, uniqueMeasureCorner } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
@@ -90,12 +90,16 @@ check('yüz gizlenince ok durur', seenFrom([1, 0, 0], [-1, 0.2, 0.2], 'axis') &&
 const blocked = routeClear([-2, 0, 0], [-1, 0, 0], [2, 0, 0], [1, 0, 0], [{ min: [-0.4, -0.4, -0.4], max: [0.4, 0.4, 0.4] }], 0)
 const samples = []
 for (let i = 1; i < blocked.length - 1; i += 1) samples.push(blocked[i])
-const through = samples.some((point) => Math.abs(point[0]) < 0.4 && Math.abs(point[1]) < 0.4 && Math.abs(point[2]) < 0.4)
+const through = blocked.some((point) => Math.abs(point[0]) < 0.4 && Math.abs(point[1]) < 0.4 && Math.abs(point[2]) < 0.4)
 check('kablo engelin içinden geçmez', blocked && blocked.some((point) => point[1] > 0.4) && !through)
 const via = routeThrough([0, 0, 0], [0, 1, 0], [2, 0, 0], [0, 1, 0], [1, 0.4, 0.5])
 check('kıvrım noktası kablonun üstünde', via && via.some((point) => point[0] === 1 && point[1] === 0.4 && point[2] === 0.5))
-const clear = routeClear([-2, 1, 0], [0, 1, 0], [2, 1, 0], [0, 1, 0], [], 1)
-check('boş yolda ikinci kablo yükselir', clear && clear[2][1] > clear[0][1])
+const alone = routeClear([-2, 1, 0], [0, 1, 0], [2, 1, 0], [0, 1, 0], [], 0, { leadA: 1, leadB: 1, gap: 0.8 })
+const clear = routeClear([-2, 1, 0], [0, 1, 0], [2, 1.2, 0], [0, 1, 0], [], 1, { leadA: 1, leadB: 1, gap: 0.8, cables: [alone] })
+check('boş yolda ikinci kablo ayrılır', clear && alone && Math.hypot(clear[0][1] - alone[0][1], clear[0][2] - alone[0][2]) > 0.7)
+const ether = routeClear([0, 0, 0], [1, 0, 0], [12, 0, 0], [-1, 0, 0], [], 0, { leadA: plugReach('ag'), leadB: plugReach('ag') })
+check('ethernet kablosu fişin ucundan başlar', ether && Math.abs(ether[0][0] - plugReach('ag')) < 1e-6 && ether[ether.length - 1][0] < 12)
+check('kablo porta geri dönmez', ether && ether.every((point) => point[0] > 1 && point[0] < 11))
 
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100)
 camera.up.set(0, 0, -1)

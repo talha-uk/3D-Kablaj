@@ -214,61 +214,116 @@ function hitsAny(a, b, boxes, pad) {
   return boxes.some((box) => segmentHits(a, b, box, pad))
 }
 
-export function routeClear(aPos, aNormal, bPos, bNormal, boxes = [], lane = 0) {
-  const an = normalOr(aNormal, [0, 1, 0])
-  const bn = normalOr(bNormal, [0, 1, 0])
-  const dist = hypot(bPos[0] - aPos[0], bPos[1] - aPos[1], bPos[2] - aPos[2])
-  const lead = Math.min(0.14, Math.max(0.04, dist * 0.12))
-  let start = add(aPos, scale(an, lead))
-  let end = add(bPos, scale(bn, lead))
-  for (let pass = 0; pass < 8; pass += 1) {
-    let moved = false
-    for (const box of boxes) {
-      if (insideBox(box, start, 0.008)) {
-        start = add(start, scale(an, 0.03))
-        moved = true
-      }
-      if (insideBox(box, end, 0.008)) {
-        end = add(end, scale(bn, 0.03))
-        moved = true
-      }
-    }
-    if (!moved) break
+function pushOut(point, normal, boxes, pad) {
+  let cursor = point
+  for (let step = 0; step < 48; step += 1) {
+    if (!boxes.some((box) => insideBox(box, cursor, pad))) return cursor
+    cursor = add(cursor, scale(normal, 0.25))
   }
-  const pad = 0.01
-  const laneLift = lane * 0.04
-  const blocked = hitsAny(start, end, boxes, pad)
-  if (!blocked && lane === 0) {
-    const sag = Math.min(0.06, dist * 0.08)
-    const mid = [
-      (start[0] + end[0]) / 2,
-      (start[1] + end[1]) / 2 - sag,
-      (start[2] + end[2]) / 2
-    ]
-    if (!hitsAny(start, mid, boxes, pad) && !hitsAny(mid, end, boxes, pad)) {
-      return dedupe([aPos, start, mid, end, bPos])
-    }
-  }
-  let top = Math.max(start[1], end[1])
-  for (const box of boxes) top = Math.max(top, box.max[1])
-  const crown = top + 0.08 + laneLift
-  const upA = [start[0], Math.max(start[1], crown), start[2]]
-  const upB = [end[0], Math.max(end[1], crown), end[2]]
-  const mid = [(upA[0] + upB[0]) / 2, crown, (upA[2] + upB[2]) / 2]
-  return dedupe([aPos, start, upA, mid, upB, end, bPos])
+  return cursor
 }
 
-export function routeVia(aPos, aNormal, bPos, bNormal, vias, lift = null) {
+function sideDir(a, b) {
+  const dx = b[0] - a[0]
+  const dz = b[2] - a[2]
+  const len = Math.hypot(dx, dz)
+  if (len < 1e-6) return [1, 0, 0]
+  return [-dz / len, 0, dx / len]
+}
+
+function lerp(a, b, t) {
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
+}
+
+function segmentsClose(a, b, c, d, gap) {
+  for (let i = 0; i <= 6; i += 1) {
+    const p = lerp(a, b, i / 6)
+    for (let j = 0; j <= 6; j += 1) {
+      const q = lerp(c, d, j / 6)
+      if (hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) < gap) return true
+    }
+  }
+  return false
+}
+
+function nearCable(a, b, cables, gap) {
+  for (const line of cables) {
+    for (let i = 1; i < line.length; i += 1) {
+      if (segmentsClose(a, b, line[i - 1], line[i], gap)) return true
+    }
+  }
+  return false
+}
+
+function pathBlocked(points, boxes, cables, pad, gap) {
+  for (let i = 1; i < points.length; i += 1) {
+    if (hitsAny(points[i - 1], points[i], boxes, pad)) return true
+    if (nearCable(points[i - 1], points[i], cables, gap)) return true
+  }
+  return false
+}
+
+function overPath(start, end, crown) {
+  const upA = [start[0], Math.max(start[1], crown), start[2]]
+  const upB = [end[0], Math.max(end[1], crown), end[2]]
+  return dedupe([start, upA, upB, end])
+}
+
+export function plugReach(type) {
+  if (type === 'ntype') return 2.35
+  if (type === 'sma' || type === 'rf') return 1.7
+  if (type === 'ag') return 2.2
+  if (type === 'usb' || type === 'usb2' || type === 'usb3') return 1.8
+  if (type === 'usbc') return 1.5
+  if (type === 'guc') return 1.4
+  return 0.7
+}
+
+export function routeClear(aPos, aNormal, bPos, bNormal, boxes = [], lane = 0, options = {}) {
   const an = normalOr(aNormal, [0, 1, 0])
   const bn = normalOr(bNormal, [0, 1, 0])
-  const dist = hypot(bPos[0] - aPos[0], bPos[1] - aPos[1], bPos[2] - aPos[2])
-  const lead = Math.min(0.14, Math.max(0.04, dist * 0.12))
-  const start = add(aPos, scale(an, lead))
-  const end = add(bPos, scale(bn, lead))
+  const leadA = options.leadA ?? plugReach('diger')
+  const leadB = options.leadB ?? plugReach('diger')
+  const pad = options.pad ?? 0.35
+  const gap = options.gap ?? 0.9
+  const cables = options.cables || []
+  let start = pushOut(add(aPos, scale(an, leadA)), an, boxes, pad)
+  let end = pushOut(add(bPos, scale(bn, leadB)), bn, boxes, pad)
+  const shift = add(scale(sideDir(start, end), lane * gap), [0, lane * gap * 0.35, 0])
+  start = add(start, shift)
+  end = add(end, shift)
+  const blocked = (points) => pathBlocked(points, boxes, cables, pad, gap)
+  const direct = dedupe([start, end])
+  if (direct && !blocked(direct)) return direct
+  let top = Math.max(start[1], end[1])
+  for (const box of boxes) top = Math.max(top, box.max[1] + pad)
+  const crowns = [0, 1, 2].map((step) => top + gap + lane * gap + step * gap)
+  for (const crown of crowns) {
+    const path = overPath(start, end, crown)
+    if (path && !blocked(path)) return path
+  }
+  const side = sideDir(start, end)
+  for (const sign of [1, -1]) {
+    for (const mul of [1, 2, 3]) {
+      const off = scale(side, sign * mul * gap)
+      const aside = dedupe([start, add(start, off), add(end, off), end])
+      if (aside && !blocked(aside)) return aside
+    }
+  }
+  return overPath(start, end, crowns[crowns.length - 1])
+}
+
+export function routeVia(aPos, aNormal, bPos, bNormal, vias, lift = null, leads = {}) {
+  const an = normalOr(aNormal, [0, 1, 0])
+  const bn = normalOr(bNormal, [0, 1, 0])
+  const leadA = leads.leadA ?? plugReach('diger')
+  const leadB = leads.leadB ?? plugReach('diger')
+  const start = add(aPos, scale(an, leadA))
+  const end = add(bPos, scale(bn, leadB))
   const mids = (vias || []).map((via) => (
     lift == null ? via : [via[0], lift, via[1]]
   ))
-  return dedupe([aPos, start, ...mids, end, bPos])
+  return dedupe([start, ...mids, end])
 }
 
 export function routeThrough(aPos, aNormal, bPos, bNormal, via) {

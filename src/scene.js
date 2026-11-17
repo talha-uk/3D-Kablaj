@@ -10,7 +10,7 @@ import { exteriorMask, modelUnit, nearestMeasureCorner, sameFaceTriangles, snapM
 import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
-import { cableRadius, SCHEMA_LIFT, routeClear, routeSchema, routeVia } from './route.js'
+import { cableRadius, plugReach, SCHEMA_LIFT, routeClear, routeSchema, routeVia } from './route.js'
 import { cableShown, portTypeOf } from './state.js'
 
 function ownedBox(width, height, depth) {
@@ -309,19 +309,6 @@ function addCablePlug(group, type, cableId) {
   if (type === 'usbc') return addUsbCPlug(group, cableId)
   if (type === 'guc') return addBarrelPlug(group, cableId)
   return addPlainBoot(group, cableId)
-}
-
-function jacketPoints(points, origin, normal, reach) {
-  if (!points?.length || !(reach > 0)) return points
-  const start = [0, 1, 2].map((axis) => origin[axis] + normal[axis] * reach)
-  let index = 1
-  while (index < points.length - 1) {
-    let along = 0
-    for (let axis = 0; axis < 3; axis += 1) along += (points[index][axis] - origin[axis]) * normal[axis]
-    if (along >= reach) break
-    index += 1
-  }
-  return [start, ...points.slice(index)]
 }
 
 function addPowerPort(pivot, fit, component, port) {
@@ -1096,25 +1083,27 @@ export class View {
       lanes.push({ mid, lane })
       frames.get(cable.id).lane = lane
     }
+    const laid = []
     for (const cable of visible) {
       const frame = frames.get(cable.id)
       const a = frame?.a
       const b = frame?.b
       if (!a || !b) continue
-      const plain = this.plainRoute(a, b, cable)
+      const typeA = portTypeOf(this.state, cable.a.componentId, cable.a.portId) || cable.type
+      const typeB = portTypeOf(this.state, cable.b.componentId, cable.b.portId) || cable.type
+      const reachA = plugReach(typeA)
+      const reachB = plugReach(typeB)
+      const plain = this.plainRoute(a, b, cable, frame.lane || 0, laid, reachA, reachB)
       const vias = this.viasOf(cable, plain)
       const lift = SCHEMA_LIFT[cable.type] || 0.02
       const points = vias.length
-        ? routeVia(a.position, a.normal, b.position, b.normal, vias, this.mode === 'sema' ? lift : null)
+        ? routeVia(a.position, a.normal, b.position, b.normal, vias, this.mode === 'sema' ? lift : null, { leadA: reachA, leadB: reachB })
         : plain
       if (!points) continue
-      const typeA = portTypeOf(this.state, cable.a.componentId, cable.a.portId) || cable.type
-      const typeB = portTypeOf(this.state, cable.b.componentId, cable.b.portId) || cable.type
-      const reachA = this.addCableEnd(a, typeA, cable.id)
-      const reachB = this.addCableEnd(b, typeB, cable.id)
-      const fromA = jacketPoints(points, a.position, a.normal, reachA)
-      const jacketLine = jacketPoints(fromA.slice().reverse(), b.position, b.normal, reachB).reverse()
-      const line = jacketLine.length >= 2 ? jacketLine : points
+      laid.push(points)
+      this.addCableEnd(a, typeA, cable.id)
+      this.addCableEnd(b, typeB, cable.id)
+      const line = points
       const curve = new THREE.CatmullRomCurve3(line.map((point) => new THREE.Vector3().fromArray(point)))
       if (this.mode === 'sema') {
         curve.curveType = 'catmullrom'
@@ -1159,7 +1148,7 @@ export class View {
     }
   }
 
-  plainRoute(a, b, cable) {
+  plainRoute(a, b, cable, lane = 0, laid = [], leadA = 0.7, leadB = 0.7) {
     if (this.mode === 'sema') {
       const footprints = []
       for (const group of this.groups.values()) {
@@ -1175,7 +1164,14 @@ export class View {
       if (box.isEmpty()) continue
       boxes.push({ min: [box.min.x, box.min.y, box.min.z], max: [box.max.x, box.max.y, box.max.z] })
     }
-    return routeClear(a.position, a.normal, b.position, b.normal, boxes, 0)
+    const radius = cableRadius(cable.type)
+    return routeClear(a.position, a.normal, b.position, b.normal, boxes, lane, {
+      leadA,
+      leadB,
+      pad: radius + 0.25,
+      gap: radius * 2 + 0.45,
+      cables: laid
+    })
   }
 
   viasOf(cable, plain) {
