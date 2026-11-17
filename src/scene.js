@@ -503,6 +503,12 @@ export class View {
     canvas.addEventListener('pointerdown', (event) => {
       if (event.button !== 0) return
       this.setPointer(event)
+      if (this.gizmoHandleHit()) {
+        this.orbit.enabled = false
+        this.transform.enabled = true
+        this.holdingGizmo = true
+        return
+      }
       if (this.tool !== 'kablo' && this.tool !== 'dondur' && this.portUnderPointer()) {
         this.orbit.enabled = false
         this.transform.enabled = false
@@ -513,12 +519,6 @@ export class View {
         this.orbit.enabled = false
         this.transform.enabled = false
         this.holdingBend = true
-        return
-      }
-      if (this.gizmoHandleHit()) {
-        this.orbit.enabled = false
-        this.transform.enabled = true
-        this.holdingGizmo = true
         return
       }
       this.transform.enabled = false
@@ -1063,17 +1063,16 @@ export class View {
     return []
   }
 
-  bendRadius() {
-    if (this.mode === 'sema') {
-      const span = (this.ortho.top - this.ortho.bottom) / Math.max(this.ortho.zoom, 0.001)
-      return span / Math.max(this.canvas.clientHeight, 1) * 18
-    }
-    const dist = this.perspective.position.distanceTo(this.orbit.target)
-    return Math.max(0.05, dist * 0.022)
+  bendRadius(type) {
+    const bead = cableRadius(type) * 1.7
+    if (this.mode !== 'sema') return bead
+    const span = (this.ortho.top - this.ortho.bottom) / Math.max(this.ortho.zoom, 0.001)
+    const screen = span / Math.max(this.canvas.clientHeight, 1) * 6
+    return Math.min(Math.max(bead, screen), bead * 1.8)
   }
 
   addBendHandles(cable, vias, lift) {
-    const radius = this.bendRadius()
+    const radius = this.bendRadius(cable.type)
     vias.forEach((via, index) => {
       const at = lift == null ? via : [via[0], lift, via[1]]
       const geometry = new THREE.SphereGeometry(radius, 20, 14)
@@ -1086,7 +1085,7 @@ export class View {
       mesh.userData.kind = 'bend'
       mesh.userData.cableId = cable.id
       mesh.userData.viaIndex = index
-      const pickGeometry = new THREE.SphereGeometry(radius * 2.4, 12, 10)
+      const pickGeometry = new THREE.SphereGeometry(Math.max(radius * 1.6, 0.35), 12, 10)
       pickGeometry.userData.owned = true
       const pick = new THREE.Mesh(pickGeometry, new THREE.MeshBasicMaterial())
       pick.visible = false
@@ -1128,29 +1127,29 @@ export class View {
       }
     }
     const rotate = this.tool === 'dondur'
-    if (this.selection?.kind === 'port') {
-      this.transform.detach()
-      this.setBox(null)
-      return
-    }
-    const editing = Boolean(group) && this.tool !== 'kablo' && this.tool !== 'port' && this.tool !== 'olcu'
+    const portAxes = Boolean(group)
+      && this.selection?.kind === 'port'
+      && this.mode === 'incele'
+      && this.tool !== 'kablo'
+      && this.tool !== 'olcu'
+      && !rotate
+    const editing = portAxes || (Boolean(group) && this.selection?.kind !== 'port' && this.tool !== 'kablo' && this.tool !== 'port' && this.tool !== 'olcu')
     if (!editing) {
       this.transform.detach()
-      this.setBox(group && this.mode !== 'incele' ? group : null)
+      this.setBox(group && this.mode !== 'incele' && this.selection?.kind !== 'port' ? group : null)
       return
     }
     this.transform.camera = this.activeCamera()
     this.transform.setMode(rotate ? 'rotate' : 'translate')
-    this.transform.setSize(rotate ? 2.4 : 1.6)
-    this.transform.space = this.selection?.kind === 'port' || rotate ? 'local' : 'world'
+    this.transform.setSize(portAxes ? 1.15 : rotate ? 2.4 : 1.6)
+    this.transform.space = portAxes || rotate ? 'local' : 'world'
     const schema = this.mode === 'sema'
-    const port = this.selection?.kind === 'port'
-    this.transform.showX = !rotate
-    this.transform.showY = rotate || port || !schema
-    this.transform.showZ = !rotate
-    this.transform.showXY = !schema && !rotate
-    this.transform.showYZ = !schema && !rotate
-    this.transform.showXZ = !schema && !rotate
+    this.transform.showX = portAxes || !rotate
+    this.transform.showY = portAxes || rotate || !schema
+    this.transform.showZ = portAxes || !rotate
+    this.transform.showXY = !portAxes && !schema && !rotate
+    this.transform.showYZ = !portAxes && !schema && !rotate
+    this.transform.showXZ = !portAxes && !schema && !rotate
     this.transform.showE = false
     this.transform.showXYZE = false
     if (rotate) {
@@ -1548,6 +1547,7 @@ export class View {
   softenTransform() {
     const object = this.transform.object
     if (!object) return
+    if (object.userData.pivot && this.transform.mode === 'translate') return
     if (this.transform.mode === 'rotate') {
       if (object.userData.pivot) {
         const normal = new THREE.Vector3(0, 1, 0).applyQuaternion(object.quaternion).normalize()
@@ -1664,6 +1664,9 @@ export class View {
     }
     if (this.mode === 'incele' && hit?.kind === 'port' && this.tool !== 'kablo') {
       this.hooks.onSelect?.({ kind: 'port', componentId: 'incele', portId: hit.portId })
+      if (this.tool !== 'olcu' && this.tool !== 'dondur') {
+        this.hooks.status?.('Eksenlerle taşı. Portu sürükleyince yüzeye oturur.')
+      }
       return
     }
     if (this.tool === 'kablo' && hit?.kind === 'port') {
