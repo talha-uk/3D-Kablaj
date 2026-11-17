@@ -476,18 +476,12 @@ export function mount(hooks) {
     }
     const distance = button('Mesafe ölç', () => hooks.onOlcuHedef?.('mesafe'))
     distance.setAttribute('aria-pressed', ui.olcuHedef === 'a' || ui.olcuHedef === 'b' ? 'true' : 'false')
-    const pairBody = [
-      modes,
-      distance,
-      cmInput('Mesafe (cm)', cift.cm, (cm) => {
-        hooks.onOlcuPair?.(model.id, { ...olcu, cift: { ...cift, color: '#2f8f4e', cm } })
-      }, 'olcu-mesafe')
-    ]
+    const pairBody = [modes, distance]
     if (fit && cift.a && cift.b && model.olcek) {
       const live = document.createElement('p')
       const now = pairCm(cift.a, cift.b, fit.s, model.olcek)
       live.textContent = `İki nokta arası ${now.toFixed(1)} cm`
-      pairBody.splice(2, 0, live)
+      pairBody.push(live)
     }
     box.append(disclosure('cift', 'İki nokta', ...pairBody))
     return box
