@@ -6,7 +6,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { clone as cloneObject } from 'three/addons/utils/SkeletonUtils.js'
 import { focusFor } from './focus.js'
 import { SCHEMA_TILT, aimAhead, axisAngles, cameraPlacement, flyDelta, groundAxes, panFocus, schemaPose, turnLook } from './fly.js'
-import { snapEdgeCorner, snapModelCorner, snapReference } from './olcu.js'
+import { exteriorMask, snapEdgeCorner, snapModelCorner, snapReference } from './olcu.js'
 import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
@@ -1220,7 +1220,7 @@ export class View {
     const hit = portHit && chosen && portHit.distance <= chosen.distance + 0.04 ? portHit : chosen
     if (!hit) return null
     const data = hit.object.userData
-    if (data.kind === 'submesh') return { kind: 'submesh', mesh: hit.object, point: hit.point, face: hit.face, object: hit.object }
+    if (data.kind === 'submesh') return { kind: 'submesh', mesh: hit.object, point: hit.point, face: hit.face, faceIndex: hit.faceIndex, object: hit.object }
     return { ...data, point: hit.point, face: hit.face, object: hit.object }
   }
 
@@ -1543,6 +1543,10 @@ export class View {
 
   click(hit) {
     if (this.mode === 'incele' && hit?.kind === 'submesh') {
+      if (!this.faceIsExterior(hit)) {
+        this.hooks.status?.('İç yüzeye nokta konmaz.')
+        return
+      }
       const hedef = this.hooks.olcuHedef?.()
       if (hedef === 'a' || hedef === 'b') {
         this.createMeasurePoint(hit, hedef)
@@ -1639,9 +1643,41 @@ export class View {
     align.add(line)
   }
 
+  localTriangles(geometry) {
+    const position = geometry?.attributes?.position
+    if (!position) return []
+    const index = geometry.index
+    const at = (vertex) => {
+      const vector = new THREE.Vector3().fromBufferAttribute(position, vertex)
+      return [vector.x, vector.y, vector.z]
+    }
+    const triangles = []
+    if (index) {
+      for (let i = 0; i < index.count; i += 3) triangles.push([at(index.getX(i)), at(index.getX(i + 1)), at(index.getX(i + 2))])
+    } else {
+      for (let i = 0; i < position.count; i += 3) triangles.push([at(i), at(i + 1), at(i + 2)])
+    }
+    return triangles
+  }
+
+  exteriorFaces(geometry) {
+    if (!geometry) return null
+    if (geometry.userData.exteriorMask) return geometry.userData.exteriorMask
+    const mask = exteriorMask(this.localTriangles(geometry))
+    geometry.userData.exteriorMask = mask
+    return mask
+  }
+
+  faceIsExterior(hit) {
+    const geometry = hit?.object?.geometry
+    if (!geometry || hit.faceIndex == null) return false
+    return Boolean(this.exteriorFaces(geometry)?.[hit.faceIndex])
+  }
+
   meshTriangles(mesh, inverse) {
     const position = mesh.geometry?.attributes?.position
     if (!position) return []
+    const mask = this.exteriorFaces(mesh.geometry)
     const index = mesh.geometry.index
     const local = (vertex) => {
       const vector = new THREE.Vector3().fromBufferAttribute(position, vertex)
@@ -1649,12 +1685,14 @@ export class View {
       return [vector.x, vector.y, vector.z]
     }
     const triangles = []
+    const push = (a, b, c, faceIndex) => {
+      if (mask && mask[faceIndex] === false) return
+      triangles.push([local(a), local(b), local(c)])
+    }
     if (index) {
-      for (let i = 0; i < index.count; i += 3) {
-        triangles.push([local(index.getX(i)), local(index.getX(i + 1)), local(index.getX(i + 2))])
-      }
+      for (let i = 0; i < index.count; i += 3) push(index.getX(i), index.getX(i + 1), index.getX(i + 2), i / 3)
     } else {
-      for (let i = 0; i < position.count; i += 3) triangles.push([local(i), local(i + 1), local(i + 2)])
+      for (let i = 0; i < position.count; i += 3) push(i, i + 1, i + 2, i / 3)
     }
     return triangles
   }
@@ -1663,8 +1701,8 @@ export class View {
     this.raycaster.setFromCamera(this.pointer, this.activeCamera())
     const hits = this.raycaster.intersectObject(this.inspectRoot, true)
     const hit = hits.find((item) => item.object.userData.kind === 'submesh')
-    if (!hit) return null
-    return { kind: 'submesh', mesh: hit.object, point: hit.point, face: hit.face, object: hit.object }
+    if (!hit || !this.faceIsExterior(hit)) return null
+    return { kind: 'submesh', mesh: hit.object, point: hit.point, face: hit.face, faceIndex: hit.faceIndex, object: hit.object }
   }
 
   dragMeasurePoint() {
