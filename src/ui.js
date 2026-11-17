@@ -112,7 +112,7 @@ export function mount(hooks) {
     ipucu.textContent = ui.olcuHedef === 'a'
       ? `Birinci noktayı ${snapName[snap]} tıkla.`
       : ui.olcuHedef === 'b'
-        ? `İkinci noktayı aynı yüzde ve aynı yükseklikte, ${snapName[snap]} tıkla.`
+        ? `İkinci noktayı aynı yüzde, ${snapName[snap]} tıkla. Yükseklik serbest.`
         : ui.olcuHedef === 'merkez'
           ? 'Ortak merkez köşeye tıkla. En, boy ve derinlik bu köşeden çıkar.'
           : axisName[ui.olcuHedef]
@@ -479,7 +479,7 @@ export function mount(hooks) {
     pairTitle.textContent = 'İki nokta'
     const pairNote = document.createElement('p')
     pairNote.className = 'not'
-    pairNote.textContent = 'Kural: iki nokta aynı yüzde ve aynı yükseklikte olur. Birinci nokta yüzü ve yüksekliği kilitler. Köşe, kenar veya yüzey bu kilit içinde yapışır. Çizgi yeşildir.'
+    pairNote.textContent = 'Kural: iki nokta aynı yüzde olur. Yükseklik serbesttir. Köşe, kenar veya yüzey bu yüzde yapışır. Çizgi yeşildir.'
     const cift = {
       a: Array.isArray(olcu.cift?.a) ? olcu.cift.a : null,
       b: Array.isArray(olcu.cift?.b) ? olcu.cift.b : null,

@@ -139,7 +139,7 @@ const view = new View(document.getElementById('sahne'), {
     const model = state.models.find((item) => item.id === uiState.inspectId)
     const cift = model?.olcu?.cift
     if (!cift?.plane || !Array.isArray(cift.a)) return null
-    return { plane: cift.plane, y: cift.y }
+    return { plane: cift.plane }
   },
   olcuAnchor: () => {
     const model = state.models.find((item) => item.id === uiState.inspectId)

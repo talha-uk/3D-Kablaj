@@ -1681,7 +1681,7 @@ export class View {
       lock
     )
     if (!result) {
-      this.hooks.status?.('Aynı yüzeyde ve aynı yükseklikte seç.')
+      this.hooks.status?.('Aynı yüzeyde seç.')
       return
     }
     this.hooks.onMeasurePoint?.({

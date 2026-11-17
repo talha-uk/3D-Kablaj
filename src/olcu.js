@@ -264,7 +264,7 @@ export function snapEdgeCorner(triangles, point, anchor) {
   return end
 }
 
-// mode: kose, kenar, yuzey. lock ikinci noktayı ilk yüzey ve yüksekliğe bağlar.
+// mode: kose, kenar, yuzey. lock ikinci noktayı ilk yüzeye bağlar. Yükseklik serbesttir.
 export function snapReference(triangles, point, normal, mode, lock = null) {
   const n = norm(normal)
   const d = dot(n, point)
@@ -282,12 +282,11 @@ export function snapReference(triangles, point, normal, mode, lock = null) {
   })
   if (!faces.length) return null
   const edges = boundaryEdges(faces)
-  const y = lock?.y ?? null
   const snapped = mode === 'kose'
-    ? snapCorner(edges, point, y)
+    ? snapCorner(edges, point, null)
     : mode === 'kenar'
-      ? snapEdge(edges, point, y)
-      : snapSurface(faces, point, useN, useD, y)
+      ? snapEdge(edges, point, null)
+      : snapSurface(faces, point, useN, useD, null)
   if (!snapped) return null
   return { position: snapped, plane: { normal: useN, d: useD }, y: snapped[1] }
 }
