@@ -197,6 +197,118 @@ h2 { font-size: 0.85rem; margin-block-end: 0.4rem; }
   gap: 1rem;
 }
 
+.hiyerarsi { padding: 0; gap: 0; }
+
+.hiyerarsi-baslik {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.4rem 0.55rem;
+  border-block-end: 1px solid var(--line);
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  background: var(--panel);
+}
+
+.hiyerarsi-baslik h2 {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hiyerarsi-baslik button {
+  min-block-size: 1.55rem;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.75rem;
+}
+
+#hiyerarsi,
+#hiyerarsi ul {
+  margin: 0;
+  padding: 0.15rem 0;
+  gap: 0;
+}
+
+.hiyerarsi button {
+  min-inline-size: 0;
+  min-block-size: 1.3rem;
+}
+
+.agac-satir {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-block-size: 1.45rem;
+}
+
+.agac-satir:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+
+.agac-satir.secili,
+.agac-satir.secili:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
+
+.agac-ok {
+  inline-size: 0.85rem;
+  min-inline-size: 0.85rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.agac-ok::before {
+  content: "";
+  display: block;
+  inline-size: 0.55rem;
+  block-size: 0.55rem;
+  margin-inline: auto;
+  background-color: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='black' d='M3.2 5.4 8 10.2l4.8-4.8 1.1 1.1L8 12.4 2.1 6.5z'/%3E%3C/svg%3E") center / contain no-repeat;
+  rotate: -90deg;
+}
+
+.agac-ok[aria-expanded="true"]::before { rotate: 0deg; }
+
+.agac-ok:disabled { visibility: hidden; }
+
+.agac-ikon {
+  inline-size: 0.65rem;
+  block-size: 0.65rem;
+  flex: none;
+  border: 1px solid currentColor;
+}
+
+.agac-ikon.parca,
+.agac-ikon.model { background: currentColor; }
+
+.agac-ikon.port { border-radius: 50%; }
+
+.agac-ikon.kablo {
+  inline-size: 0.75rem;
+  block-size: 0;
+  border-width: 1px 0 0;
+}
+
+.agac-ikon.grup { border: 0; background: transparent; }
+
+.hiyerarsi .agac-ad {
+  flex: 1;
+  padding: 0.05rem 0.2rem;
+  border: 0;
+  background: transparent;
+  text-align: start;
+  border-radius: 0.15rem;
+  font-size: 0.85rem;
+}
+
+.hiyerarsi .agac-sil {
+  padding: 0 0.3rem;
+  font-size: 0.7rem;
+}
+
+.agac-bos { padding-block: 0.1rem; }
+
 #denetim { border-inline-end: 0; border-inline-start: 1px solid var(--line); }
 
 .secili-ad {

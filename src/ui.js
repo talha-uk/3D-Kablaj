@@ -29,12 +29,8 @@ export function mount(hooks) {
   bindToolbar(document.querySelector('[role="toolbar"]'))
   const durum = document.getElementById('durum')
   const bos = document.getElementById('bos')
-  const modeller = document.getElementById('modeller')
-  const parcalar = document.getElementById('parcalar')
-  const secilen = document.getElementById('secilen')
-  const secilenNe = document.getElementById('secilen-ne')
-  const secilenAd = document.getElementById('secilen-ad')
-  const bagli = document.getElementById('bagli')
+  const hiyerarsi = document.getElementById('hiyerarsi')
+  const gorunum = document.getElementById('gorunum')
   const secili = document.getElementById('secili')
   const projeAd = document.getElementById('proje-ad')
   const dosya = document.getElementById('dosya')
@@ -73,9 +69,31 @@ export function mount(hooks) {
     zone.addEventListener('drop', (event) => {
       event.preventDefault()
       zone.classList.remove('birak')
+      if (event.target.closest('#gorunum')) return
       hooks.onUpload?.(event.dataTransfer.files)
     })
   }
+  gorunum.addEventListener('dragover', (event) => {
+    const types = [...event.dataTransfer.types]
+    if (!types.includes('Files') && !types.includes('application/x-kablaj-model')) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.dataTransfer.dropEffect = 'copy'
+    gorunum.classList.add('birak')
+  })
+  gorunum.addEventListener('dragleave', () => gorunum.classList.remove('birak'))
+  gorunum.addEventListener('drop', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    gorunum.classList.remove('birak')
+    ekran.classList.remove('birak')
+    const modelId = event.dataTransfer.getData('application/x-kablaj-model')
+    if (modelId) {
+      hooks.onPlace?.(modelId)
+      return
+    }
+    hooks.onUpload?.(event.dataTransfer.files)
+  })
 
   function render(state, ui) {
     if (document.activeElement !== projeAd) projeAd.value = state.name
@@ -102,125 +120,8 @@ export function mount(hooks) {
     bos.hidden = !showEmpty
     bos.textContent = ui.mode === 'incele'
       ? 'Soldan bir model seç. Port işaretle veya ölçü noktası sağ paneli açar.'
-      : 'Modeli incele, port işaretle, sahneye koy, kablo yerleştir.'
-
-    modeller.replaceChildren()
-    for (const model of state.models) {
-      const row = document.createElement('li')
-      row.className = 'satir-oge'
-      const name = button(model.name, () => hooks.onInspect?.(model.id))
-      name.setAttribute('aria-pressed', ui.inspectId === model.id ? 'true' : 'false')
-      row.append(
-        name,
-        button('Sahneye koy', () => hooks.onPlace?.(model.id))
-      )
-      if (!state.components.some((item) => item.modelId === model.id)) {
-        row.append(button('Sil', () => hooks.onRemoveModel?.(model.id)))
-      }
-      modeller.append(row)
-    }
-    if (state.models.length === 0) {
-      const empty = document.createElement('li')
-      empty.className = 'not'
-      empty.textContent = 'Henüz model yok.'
-      modeller.append(empty)
-    }
-
-    parcalar.replaceChildren()
-    if (state.components.length === 0) {
-      const empty = document.createElement('li')
-      empty.className = 'not'
-      empty.textContent = 'Henüz parça yok.'
-      parcalar.append(empty)
-    }
-    for (const component of state.components) {
-      const block = document.createElement('li')
-      const model = state.models.find((item) => item.id === component.modelId)
-      const title = button(component.name, () => hooks.onSelect?.({ kind: 'component', id: component.id }))
-      const pickedPart = selectedComponent(state, ui)?.id === component.id
-      title.setAttribute('aria-pressed', pickedPart ? 'true' : 'false')
-      title.addEventListener('pointerenter', () => hooks.onHover?.({ kind: 'component', componentId: component.id }))
-      title.addEventListener('pointerleave', () => hooks.onHover?.(null))
-      block.append(title)
-      if (model && model.name !== component.name) {
-        const kind = document.createElement('p')
-        kind.className = 'not'
-        kind.textContent = model.name
-        block.append(kind)
-      }
-      const ports = componentPorts(state, component)
-      if (ports.length) {
-        const line = document.createElement('p')
-        line.className = 'not'
-        line.textContent = ports.map((port) => port.name).join(', ')
-        block.append(line)
-      }
-      const linked = state.cables.filter((cable) => cable.a.componentId === component.id || cable.b.componentId === component.id)
-      if (linked.length) {
-        const list = document.createElement('ul')
-        for (const cable of linked) {
-          const other = cable.a.componentId === component.id ? cable.b : cable.a
-          const pair = matchCable(
-            portTypeOf(state, cable.a.componentId, cable.a.portId),
-            portTypeOf(state, cable.b.componentId, cable.b.portId)
-          )
-          const bad = portTypeOf(state, cable.a.componentId, cable.a.portId)
-            && portTypeOf(state, cable.b.componentId, cable.b.portId)
-            && !pair
-          const row = document.createElement('li')
-          const cm = hooks.cableLength?.(cable)
-          const name = button(
-            `${cable.name} → ${componentName(state, other.componentId)} ${portName(state, other.componentId, other.portId)}${cm == null ? '' : ` · ${cm.toFixed(1)} cm`}${bad ? ' · uyumsuz' : ''}`,
-            () => hooks.onSelect?.({ kind: 'cable', id: cable.id })
-          )
-          name.setAttribute('aria-pressed', ui.selection?.kind === 'cable' && ui.selection.id === cable.id ? 'true' : 'false')
-          name.addEventListener('pointerenter', () => hooks.onHover?.({ kind: 'cable', cableId: cable.id }))
-          name.addEventListener('pointerleave', () => hooks.onHover?.(null))
-          row.append(name)
-          list.append(row)
-        }
-        block.append(list)
-      }
-      parcalar.append(block)
-    }
-
-    const picked = selectedComponent(state, ui)
-    secilen.hidden = !picked
-    bagli.replaceChildren()
-    if (picked) {
-      const model = state.models.find((item) => item.id === picked.modelId)
-      secilenNe.textContent = model?.name || picked.name
-      const same = !model || model.name === picked.name
-      secilenAd.hidden = same
-      secilenAd.textContent = same ? '' : picked.name
-      const linked = state.cables.filter((cable) => cable.a.componentId === picked.id || cable.b.componentId === picked.id)
-      if (linked.length === 0) {
-        const empty = document.createElement('li')
-        empty.className = 'not'
-        empty.textContent = 'Bağlı kablo yok.'
-        bagli.append(empty)
-      }
-      for (const cable of linked) {
-        const other = cable.a.componentId === picked.id ? cable.b : cable.a
-        const pair = matchCable(
-          portTypeOf(state, cable.a.componentId, cable.a.portId),
-          portTypeOf(state, cable.b.componentId, cable.b.portId)
-        )
-        const bad = portTypeOf(state, cable.a.componentId, cable.a.portId)
-          && portTypeOf(state, cable.b.componentId, cable.b.portId)
-          && !pair
-        const row = document.createElement('li')
-        const name = button(
-          `${cable.name} → ${componentName(state, other.componentId)} ${portName(state, other.componentId, other.portId)}${bad ? ' · uyumsuz' : ''}`,
-          () => hooks.onSelect?.({ kind: 'cable', id: cable.id })
-        )
-        name.setAttribute('aria-pressed', ui.selection?.kind === 'cable' && ui.selection.id === cable.id ? 'true' : 'false')
-        name.addEventListener('pointerenter', () => hooks.onHover?.({ kind: 'cable', cableId: cable.id }))
-        name.addEventListener('pointerleave', () => hooks.onHover?.(null))
-        row.append(name)
-        bagli.append(row)
-      }
-    }
+      : 'Modeli hiyerarşiden sahneye sürükle.'
+    drawHierarchy(state, ui)
 
     const active = document.activeElement
     const typing = secili.contains(active) && (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement)
@@ -504,14 +405,146 @@ export function mount(hooks) {
     return box
   }
 
-  function selectedComponent(state, ui) {
-    if (ui.selection?.kind === 'component') {
-      return state.components.find((item) => item.id === ui.selection.id) || null
+  const treeOpen = new Map()
+  let shown = null
+
+  function drawHierarchy(state, ui) {
+    shown = { state, ui }
+    hiyerarsi.replaceChildren()
+    const modelRows = state.models.map((model) => treeItem({
+      id: `model:${model.id}`,
+      label: model.name,
+      depth: 1,
+      kind: 'model',
+      selected: ui.inspectId === model.id && ui.mode === 'incele',
+      modelId: model.id,
+      onActivate: () => hooks.onInspect?.(model.id),
+      extra: state.components.some((item) => item.modelId === model.id)
+        ? null
+        : removeButton(() => hooks.onRemoveModel?.(model.id))
+    }))
+    if (!modelRows.length) modelRows.push(noteItem('GLB dosyasını buraya bırak.', 1))
+    const sceneRows = state.components.map((component) => {
+      const children = []
+      for (const port of componentPorts(state, component)) {
+        const chosen = ui.selection?.kind === 'port'
+          && ui.selection.portId === port.id
+          && ui.selection.componentId === component.id
+        children.push(treeItem({
+          id: `port:${component.id}:${port.id}`,
+          label: port.name,
+          depth: 2,
+          kind: 'port',
+          selected: Boolean(chosen),
+          onActivate: () => hooks.onSelect?.({ kind: 'port', componentId: component.id, portId: port.id }),
+          hover: { kind: 'port', componentId: component.id, portId: port.id }
+        }))
+      }
+      for (const cable of state.cables.filter((item) => item.a.componentId === component.id || item.b.componentId === component.id)) {
+        const other = cable.a.componentId === component.id ? cable.b : cable.a
+        const pair = matchCable(
+          portTypeOf(state, cable.a.componentId, cable.a.portId),
+          portTypeOf(state, cable.b.componentId, cable.b.portId)
+        )
+        const bad = portTypeOf(state, cable.a.componentId, cable.a.portId)
+          && portTypeOf(state, cable.b.componentId, cable.b.portId)
+          && !pair
+        const cm = hooks.cableLength?.(cable)
+        children.push(treeItem({
+          id: `cable:${component.id}:${cable.id}`,
+          label: `${cable.name} → ${componentName(state, other.componentId)}${cm == null ? '' : ` · ${cm.toFixed(1)} cm`}${bad ? ' · uyumsuz' : ''}`,
+          depth: 2,
+          kind: 'kablo',
+          selected: ui.selection?.kind === 'cable' && ui.selection.id === cable.id,
+          onActivate: () => hooks.onSelect?.({ kind: 'cable', id: cable.id }),
+          hover: { kind: 'cable', cableId: cable.id }
+        }))
+      }
+      return treeItem({
+        id: `parca:${component.id}`,
+        label: component.name,
+        depth: 1,
+        kind: 'parca',
+        selected: ui.selection?.kind === 'component' && ui.selection.id === component.id,
+        onActivate: () => hooks.onSelect?.({ kind: 'component', id: component.id }),
+        hover: { kind: 'component', componentId: component.id },
+        children
+      })
+    })
+    if (!sceneRows.length) sceneRows.push(noteItem('Modeli sahneye sürükle.', 1))
+    hiyerarsi.append(
+      treeItem({ id: 'grup:modeller', label: 'Modeller', depth: 0, kind: 'grup', children: modelRows }),
+      treeItem({ id: 'grup:sahne', label: 'Sahne', depth: 0, kind: 'grup', children: sceneRows })
+    )
+  }
+
+  function noteItem(text, depth) {
+    const li = document.createElement('li')
+    li.className = 'not agac-bos'
+    li.style.paddingInlineStart = `${0.7 + depth * 0.9}rem`
+    li.textContent = text
+    return li
+  }
+
+  function removeButton(onClick) {
+    const item = button('Sil', onClick)
+    item.className = 'agac-sil'
+    return item
+  }
+
+  function treeItem({ id, label, depth, kind, selected, modelId, onActivate, hover, extra, children = [] }) {
+    const hasChildren = children.length > 0
+    const open = hasChildren ? (treeOpen.has(id) ? treeOpen.get(id) : true) : false
+    const li = document.createElement('li')
+    li.setAttribute('role', 'treeitem')
+    if (selected) li.setAttribute('aria-selected', 'true')
+    if (hasChildren) li.setAttribute('aria-expanded', open ? 'true' : 'false')
+    const row = document.createElement('div')
+    row.className = 'agac-satir'
+    if (selected) row.classList.add('secili')
+    row.style.paddingInlineStart = `${0.3 + depth * 0.9}rem`
+    const twist = document.createElement('button')
+    twist.type = 'button'
+    twist.className = 'agac-ok'
+    twist.tabIndex = -1
+    if (!hasChildren) {
+      twist.disabled = true
+      twist.setAttribute('aria-hidden', 'true')
+    } else {
+      twist.setAttribute('aria-expanded', open ? 'true' : 'false')
+      twist.setAttribute('aria-label', open ? 'Daralt' : 'Genişlet')
+      twist.addEventListener('click', (event) => {
+        event.stopPropagation()
+        treeOpen.set(id, !open)
+        if (shown) drawHierarchy(shown.state, shown.ui)
+      })
     }
-    if (ui.selection?.kind === 'port' && ui.selection.componentId && ui.selection.componentId !== 'incele') {
-      return state.components.find((item) => item.id === ui.selection.componentId) || null
+    const icon = document.createElement('span')
+    icon.className = `agac-ikon ${kind}`
+    icon.setAttribute('aria-hidden', 'true')
+    const name = button(label, () => onActivate?.())
+    name.className = 'agac-ad'
+    if (hover) {
+      name.addEventListener('pointerenter', () => hooks.onHover?.(hover))
+      name.addEventListener('pointerleave', () => hooks.onHover?.(null))
     }
-    return null
+    row.append(twist, icon, name)
+    if (extra) row.append(extra)
+    if (modelId) {
+      row.draggable = true
+      row.addEventListener('dragstart', (event) => {
+        event.dataTransfer.setData('application/x-kablaj-model', modelId)
+        event.dataTransfer.effectAllowed = 'copy'
+      })
+    }
+    li.append(row)
+    if (hasChildren && open) {
+      const list = document.createElement('ul')
+      list.setAttribute('role', 'group')
+      list.append(...children)
+      li.append(list)
+    }
+    return li
   }
 
   const bakis = [...document.querySelectorAll('#bakis span')]

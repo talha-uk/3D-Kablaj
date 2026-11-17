@@ -28,25 +28,13 @@
     </header>
 
     <div class="alan">
-      <aside class="yan" id="kutuphane">
-        <section>
-          <h2>Modeller</h2>
+      <aside class="yan hiyerarsi" id="kutuphane">
+        <header class="hiyerarsi-baslik">
+          <h2>Hiyerarşi</h2>
           <button type="button" id="yukle">Model yükle</button>
           <input id="dosya" type="file" accept=".glb,model/gltf-binary" multiple hidden>
-          <p class="not">GLB dosyasını buraya bırak.</p>
-          <ul id="modeller"></ul>
-        </section>
-        <section>
-          <h2>Parçalar</h2>
-          <ul id="parcalar"></ul>
-        </section>
-        <section id="secilen" hidden>
-          <h2>Parça</h2>
-          <p id="secilen-ne"></p>
-          <p id="secilen-ad" class="not"></p>
-          <h2>Bağlı kablolar</h2>
-          <ul id="bagli"></ul>
-        </section>
+        </header>
+        <ul id="hiyerarsi" role="tree" aria-label="Hiyerarşi"></ul>
       </aside>
 
       <div id="ekran">
