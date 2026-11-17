@@ -392,7 +392,13 @@ ul { list-style: none; margin: 0.4rem 0 0; padding: 0; display: flex; flex-direc
 
 .olcu-mod button + button { border-inline-start: 1px solid var(--line); }
 
-.olcu-mesafe { inline-size: 100%; }
+.olcu-cift-eylem {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem;
+}
+
+.olcu-cift-eylem button { min-inline-size: 0; }
 
 .olcu-aralik {
   margin: 0;

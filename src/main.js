@@ -103,7 +103,12 @@ const ui = mount({
   },
   onDownload: () => downloadProject(state),
   onOlcu: (modelId, olcu) => applyMeasure(modelId, olcu, 'kenar'),
-  onOlcuPair: (modelId, olcu) => applyMeasure(modelId, olcu, 'cift'),
+  onOlcuPair: (modelId, olcu) => {
+    if (!olcu.cift?.a && !olcu.cift?.b && (uiState.olcuHedef === 'a' || uiState.olcuHedef === 'b')) {
+      uiState = { ...uiState, olcuHedef: null }
+    }
+    applyMeasure(modelId, olcu, 'cift')
+  },
   onOlcuHedef: (hedef) => {
     const pickingPair = uiState.olcuHedef === 'a' || uiState.olcuHedef === 'b'
     const next = hedef === 'mesafe'

@@ -482,7 +482,17 @@ export function mount(hooks) {
     const distance = button('Mesafe ölç', () => hooks.onOlcuHedef?.('mesafe'))
     distance.className = 'olcu-mesafe'
     distance.setAttribute('aria-pressed', ui.olcuHedef === 'a' || ui.olcuHedef === 'b' ? 'true' : 'false')
-    const pairBody = [modes, distance]
+    const remove = button('Kaldır', () => {
+      hooks.onOlcuPair?.(model.id, {
+        ...olcu,
+        cift: { ...cift, a: null, b: null, plane: null, y: null }
+      })
+    })
+    remove.disabled = !cift.a && !cift.b
+    const actions = document.createElement('div')
+    actions.className = 'olcu-cift-eylem'
+    actions.append(distance, remove)
+    const pairBody = [modes, actions]
     if (fit && cift.a && cift.b && model.olcek) {
       const live = document.createElement('p')
       live.className = 'olcu-aralik'
