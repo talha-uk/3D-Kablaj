@@ -503,13 +503,16 @@ export class View {
   }
 
   onFlyDown(event) {
-    const typing = event.target instanceof HTMLInputElement
+    const field = event.target instanceof HTMLInputElement
       || event.target instanceof HTMLTextAreaElement
       || event.target instanceof HTMLSelectElement
-      || event.target.closest?.('[role="toolbar"], [role="tablist"], dialog')
-    if (typing) return
+      || event.target.closest?.('dialog')
+    if (field) return
     if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') this.flyFast = true
-    if (!['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) return
+    const fly = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']
+    if (!fly.includes(event.code)) return
+    const chrome = event.target.closest?.('[role="toolbar"], [role="tablist"]')
+    if (chrome && event.code.startsWith('Arrow')) return
     this.flyKeys.add(event.code)
     event.preventDefault()
   }
