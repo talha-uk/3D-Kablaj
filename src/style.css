@@ -201,6 +201,56 @@ h2 { font-size: 0.85rem; margin-block-end: 0.4rem; }
 
 #denetim { border-inline-end: 0; border-inline-start: 1px solid var(--line); }
 
+.secili-ad {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+#denetim details {
+  border-block-end: 1px solid var(--line);
+}
+
+#denetim summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5ch;
+  padding-block: 0.55rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+#denetim details details > summary { font-size: 0.95rem; }
+
+#denetim summary::-webkit-details-marker { display: none; }
+
+#denetim summary::before {
+  content: "";
+  inline-size: 0.7em;
+  block-size: 0.7em;
+  flex-shrink: 0;
+  background-color: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='black' d='M3.2 5.4 8 10.2l4.8-4.8 1.1 1.1L8 12.4 2.1 6.5z'/%3E%3C/svg%3E") center / contain no-repeat;
+  rotate: -90deg;
+}
+
+#denetim summary:dir(rtl)::before { rotate: 90deg; }
+
+#denetim details[open] > summary::before { rotate: 0deg; }
+
+@media (prefers-reduced-motion: no-preference) {
+  #denetim summary::before { transition: rotate 0.2s; }
+}
+
+#denetim details::details-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding-block-end: 0.7rem;
+}
+
 #gorunum {
   position: relative;
   min-width: 0;

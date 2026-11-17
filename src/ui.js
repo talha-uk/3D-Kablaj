@@ -260,11 +260,6 @@ export function mount(hooks) {
     const chosenPort = ui.selection?.kind === 'port' ? ui.selection : null
     if (ui.mode === 'incele') {
       appendInspect(state, ui, chosenPort)
-      if (secili.childElementCount) return
-      const note = document.createElement('p')
-      note.className = 'not'
-      note.textContent = 'Soldan bir model seç.'
-      secili.append(note)
       return
     }
     const component = ui.selection?.kind === 'component'
@@ -347,13 +342,6 @@ export function mount(hooks) {
       return
     }
     appendInspect(state, ui, chosenPort)
-    if (secili.childElementCount) return
-    const note = document.createElement('p')
-    note.className = 'not'
-    note.textContent = ui.mode === 'incele'
-      ? 'Porta tıklayınca seçilir. Model görünür kalır.'
-      : 'Soldan veya sahneden bir parça seç.'
-    secili.append(note)
   }
 
   function appendInspect(state, ui, chosenPort) {
@@ -361,36 +349,26 @@ export function mount(hooks) {
     const model = state.models.find((item) => item.id === ui.inspectId)
     if (!model) return
     const name = document.createElement('p')
+    name.className = 'secili-ad'
     name.textContent = model.name
     secili.append(name)
     if (ui.tool === 'port') secili.append(portList(model, chosenPort))
     if (ui.tool === 'olcu') secili.append(measurePanel(state, ui, model))
   }
 
-  function portList(model, chosenPort) {
-    const box = document.createElement('div')
-    const head = document.createElement('h2')
-    head.textContent = 'Portlar'
-    const ports = document.createElement('ul')
-    for (const port of model.ports || []) {
-      const row = document.createElement('li')
-      row.className = 'satir-oge'
-      const pick = { kind: 'port', componentId: 'incele', portId: port.id }
-      const name = button(port.name, () => hooks.onSelect?.(pick))
-      name.setAttribute('aria-pressed', chosenPort?.portId === port.id ? 'true' : 'false')
-      name.addEventListener('pointerenter', () => hooks.onHover?.(pick))
-      name.addEventListener('pointerleave', () => hooks.onHover?.(null))
-      row.append(name, button('Sil', () => hooks.onRemoveModelPort?.(model.id, port.id)))
-      ports.append(row)
-    }
-    if (!(model.ports || []).length) {
-      const empty = document.createElement('li')
-      empty.className = 'not'
-      empty.textContent = 'Yüzeye tıklayıp tür seç.'
-      ports.append(empty)
-    }
-    box.append(head, ports)
-    return box
+  const sectionOpen = new Map()
+
+  function disclosure(id, title, ...nodes) {
+    const details = document.createElement('details')
+    details.className = 'bolum'
+    details.open = sectionOpen.has(id) ? sectionOpen.get(id) : true
+    details.addEventListener('toggle', () => {
+      sectionOpen.set(id, details.open)
+    })
+    const summary = document.createElement('summary')
+    summary.textContent = title
+    details.append(summary, ...nodes)
+    return details
   }
 
   function bindDecimal(input) {
@@ -436,16 +414,27 @@ export function mount(hooks) {
     return wrap
   }
 
+  function portList(model, chosenPort) {
+    const ports = document.createElement('ul')
+    for (const port of model.ports || []) {
+      const row = document.createElement('li')
+      row.className = 'satir-oge'
+      const pick = { kind: 'port', componentId: 'incele', portId: port.id }
+      const name = button(port.name, () => hooks.onSelect?.(pick))
+      name.setAttribute('aria-pressed', chosenPort?.portId === port.id ? 'true' : 'false')
+      name.addEventListener('pointerenter', () => hooks.onHover?.(pick))
+      name.addEventListener('pointerleave', () => hooks.onHover?.(null))
+      row.append(name, button('Sil', () => hooks.onRemoveModelPort?.(model.id, port.id)))
+      ports.append(row)
+    }
+    return disclosure('portlar', 'Portlar', ports)
+  }
+
   function measurePanel(state, ui, model) {
     const olcu = measureOf(model)
     const fit = hooks.fitOf?.(model.id)
     const box = document.createElement('div')
     box.className = 'alan-form'
-    const title = document.createElement('h2')
-    title.textContent = 'Ölçü'
-    const note = document.createElement('p')
-    note.className = 'not'
-    note.textContent = 'Merkez köşe ortaktır. En, boy ve derinlik o köşeden giden kenarın tamamıdır.'
     const kenar = olcu.kenar
     const save = (patch) => hooks.onOlcu?.(model.id, { ...olcu, ...patch })
     const hedefButton = (hedef, label) => {
@@ -453,34 +442,22 @@ export function mount(hooks) {
       item.setAttribute('aria-pressed', ui.olcuHedef === hedef ? 'true' : 'false')
       return item
     }
-    const merkezNote = document.createElement('p')
-    merkezNote.className = 'not'
-    merkezNote.textContent = kenar.merkez ? 'Merkez köşe duruyor.' : 'Önce merkez köşeyi seç.'
-    box.append(title, note, hedefButton('merkez', 'Merkez belirle'), merkezNote)
     const axes = [
       ['en', 'En', 'olcu-en'],
       ['boy', 'Boy', 'olcu-boy'],
       ['derinlik', 'Derinlik', 'olcu-derinlik']
     ]
-    for (const [key, label, id] of axes) {
-      const field = document.createElement('fieldset')
-      const legend = document.createElement('legend')
-      legend.textContent = label
-      const ready = document.createElement('p')
-      ready.className = 'not'
-      ready.textContent = kenar[key] ? 'Kenar ucu duruyor.' : 'Kenarın öbür köşesini seç.'
-      field.append(
-        legend,
+    box.append(disclosure(
+      'olcu',
+      'Ölçü',
+      hedefButton('merkez', 'Merkez belirle'),
+      ...axes.map(([key, label, id]) => disclosure(
+        key,
+        label,
         hedefButton(key, `${label} noktası`),
-        ready,
         cmInput(`${label} (cm)`, olcu[key], (value) => save({ [key]: value }), id)
-      )
-      box.append(field)
-    }
-    const pairTitle = document.createElement('h2')
-    pairTitle.textContent = 'İki nokta'
-    const pairNote = document.createElement('p')
-    pairNote.className = 'not'
+      ))
+    ))
     const cift = {
       a: Array.isArray(olcu.cift?.a) ? olcu.cift.a : null,
       b: Array.isArray(olcu.cift?.b) ? olcu.cift.b : null,
@@ -490,9 +467,6 @@ export function mount(hooks) {
       plane: olcu.cift?.plane || null,
       y: olcu.cift?.y ?? null
     }
-    pairNote.textContent = cift.snap === 'kenar'
-      ? 'Kural: her tık en yakın kenara yapışır. İki nokta farklı kenarda olabilir, karşı kenar da olur. Çizgi yeşildir.'
-      : 'Kural: iki nokta aynı yüzde olur. Yükseklik serbesttir. Köşe veya yüzey bu yüzde yapışır. Çizgi yeşildir.'
     const modes = document.createElement('div')
     modes.className = 'eylem'
     modes.setAttribute('role', 'group')
@@ -504,37 +478,21 @@ export function mount(hooks) {
     }
     const distance = button('Mesafe ölç', () => hooks.onOlcuHedef?.('mesafe'))
     distance.setAttribute('aria-pressed', ui.olcuHedef === 'a' || ui.olcuHedef === 'b' ? 'true' : 'false')
-    const live = document.createElement('p')
-    if (fit && cift.a && cift.b && model.olcek) {
-      const now = pairCm(cift.a, cift.b, fit.s, model.olcek)
-      live.textContent = `İki nokta arası ${now.toFixed(1)} cm`
-    } else if (cift.a && cift.b) {
-      live.className = 'not'
-      live.textContent = 'İki nokta seçildi. Santimetre için gerçek boyu yaz.'
-    } else {
-      live.className = 'not'
-      live.textContent = 'Mesafe ölç ile iki noktayı seç.'
-    }
-    box.append(
-      pairTitle,
-      pairNote,
+    const pairBody = [
       modes,
       distance,
-      live,
       cmInput('Mesafe (cm)', cift.cm, (cm) => {
         hooks.onOlcuPair?.(model.id, { ...olcu, cift: { ...cift, color: '#2f8f4e', cm } })
       }, 'olcu-mesafe')
-    )
-    const cables = document.createElement('h2')
-    cables.textContent = 'Kablo boyu'
-    box.append(cables)
-    const list = document.createElement('ul')
-    if (!state.cables.length) {
-      const empty = document.createElement('li')
-      empty.className = 'not'
-      empty.textContent = 'Kablo yok.'
-      list.append(empty)
+    ]
+    if (fit && cift.a && cift.b && model.olcek) {
+      const live = document.createElement('p')
+      const now = pairCm(cift.a, cift.b, fit.s, model.olcek)
+      live.textContent = `İki nokta arası ${now.toFixed(1)} cm`
+      pairBody.splice(2, 0, live)
     }
+    box.append(disclosure('cift', 'İki nokta', ...pairBody))
+    const list = document.createElement('ul')
     for (const cable of state.cables) {
       const cm = hooks.cableLength?.(cable)
       const row = document.createElement('li')
@@ -542,7 +500,7 @@ export function mount(hooks) {
       row.textContent = `${cable.name}: ${cm == null ? 'ölçü yok' : `${cm.toFixed(1)} cm`}`
       list.append(row)
     }
-    box.append(list)
+    box.append(disclosure('kablo', 'Kablo boyu', list))
     return box
   }
 
