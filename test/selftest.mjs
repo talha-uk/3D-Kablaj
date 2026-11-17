@@ -6,7 +6,7 @@ import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
 import { routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
 import { addCable, addComponent, addModel, addPort, cableShown, emptyState, matchCable, uid } from '../src/state.js'
-import { cableLengthCm, decimalText, pairCm, portWorld, scaleFromBox, scaleFromPair, snapReference } from '../src/olcu.js'
+import { cableLengthCm, decimalText, pairCm, portWorld, scaleFromBox, scaleFromEdges, scaleFromPair, snapEdgeCorner, snapModelCorner, snapReference } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
 import fs from 'node:fs'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
@@ -334,6 +334,35 @@ check('SMA ucu 11 cm de kalır', Math.abs(pairCm([0, 0, 0], [11, 0, 0], fitS, bo
 const withStub = [...body, { position: [11, 0, 0] }]
 check('çıkıntı noktası kutuyu büyütür', Math.abs(scaleFromBox(withStub, { en: 10 }, fitS) - 10) < 1e-6)
 check('iki nokta 10 cm aynı ölçeği verir', Math.abs(scaleFromPair([0, 0, 0], [10, 0, 0], 10, fitS) - 11) < 1e-6)
+const cornerFaces = [
+  [[0, 0, 0], [2, 0, 0], [2, 3, 0]],
+  [[0, 0, 0], [2, 3, 0], [0, 3, 0]],
+  [[0, 0, 0], [2, 0, 0], [2, 0, 4]],
+  [[0, 0, 0], [2, 0, 4], [0, 0, 4]],
+  [[0, 0, 0], [0, 3, 0], [0, 3, 4]],
+  [[0, 0, 0], [0, 3, 4], [0, 0, 4]]
+]
+const center = snapModelCorner(cornerFaces, [0.2, 0.15, 0.1])
+check('merkez en yakın köşe', center && center[0] === 0 && center[1] === 0 && center[2] === 0)
+const edgeEnd = snapEdgeCorner(cornerFaces, [1, 0, 0], [0, 0, 0])
+check('kenar ortası öbür köşeye gider', edgeEnd && edgeEnd[0] === 2 && edgeEnd[1] === 0 && edgeEnd[2] === 0)
+const diagonal = snapEdgeCorner(cornerFaces, [2, 3, 0], [0, 0, 0])
+check('çapraz köşe kenar sayılmaz', diagonal && !(diagonal[0] === 2 && diagonal[1] === 3))
+const splitFace = [
+  [[0, 0, 0], [1, 0, 0], [0, 1, 0]],
+  [[1, 0, 0], [2, 0, 0], [2, 1, 0]],
+  [[1, 0, 0], [2, 1, 0], [0, 1, 0]]
+]
+const splitCorner = snapModelCorner(splitFace, [1.2, 0.05, 0])
+check('bölünmüş kenarın ara noktası köşe değil', splitCorner && !(splitCorner[0] === 1 && splitCorner[1] === 0))
+const fullEdge = snapEdgeCorner(splitFace, [1, 0, 0], [0, 0, 0])
+check('bölünmüş kenarın tamamı ölçülür', fullEdge && fullEdge[0] === 2 && fullEdge[1] === 0 && fullEdge[2] === 0)
+const edgeScale = scaleFromEdges(
+  { merkez: [0, 0, 0], en: [10, 0, 0], boy: [0, 4, 0] },
+  { en: 10, boy: 4 },
+  fitS
+)
+check('ortak kenarlar aynı ölçeği verir', Math.abs(edgeScale - 11) < 1e-6)
 const group = new THREE.Group()
 group.position.set(1, 2, 3)
 group.rotation.y = 0.4

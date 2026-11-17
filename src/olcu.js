@@ -149,6 +149,121 @@ function snapSurface(triangles, point, normal, d, y) {
   return snapEdge(boundaryEdges(triangles), leveled, y)
 }
 
+const FLAT = 0.96
+
+function triangleNormal(tri) {
+  const n = cross(sub(tri[1], tri[0]), sub(tri[2], tri[0]))
+  const length = lengthOf(n)
+  if (length < 1e-10) return null
+  return scale(n, 1 / length)
+}
+
+// Keskin veya açık kenarlar. Düz yüzde üçgen köşegeni kenar sayılmaz.
+export function featureEdges(triangles) {
+  const map = new Map()
+  for (const tri of triangles) {
+    const normal = triangleNormal(tri)
+    if (!normal) continue
+    for (const [a, b] of [[tri[0], tri[1]], [tri[1], tri[2]], [tri[2], tri[0]]]) {
+      const key = [vertexKey(a), vertexKey(b)].sort().join('|')
+      const item = map.get(key) || { a, b, normals: [] }
+      item.normals.push(normal)
+      map.set(key, item)
+    }
+  }
+  const edges = []
+  for (const item of map.values()) {
+    let sharp = item.normals.length < 2
+    for (let i = 0; i < item.normals.length && !sharp; i += 1) {
+      for (let j = i + 1; j < item.normals.length; j += 1) {
+        if (dot(item.normals[i], item.normals[j]) < FLAT) sharp = true
+      }
+    }
+    if (sharp) edges.push({ a: item.a, b: item.b })
+  }
+  return edges
+}
+
+function cornerGraph(triangles) {
+  const adj = new Map()
+  const node = (vertex) => {
+    const key = vertexKey(vertex)
+    let item = adj.get(key)
+    if (!item) {
+      item = { vertex, neighbors: [] }
+      adj.set(key, item)
+    }
+    return item
+  }
+  for (const edge of featureEdges(triangles)) {
+    const a = node(edge.a)
+    const b = node(edge.b)
+    const bk = vertexKey(edge.b)
+    if (a.neighbors.some((item) => item.key === bk)) continue
+    a.neighbors.push({ key: bk, vertex: edge.b })
+    b.neighbors.push({ key: vertexKey(edge.a), vertex: edge.a })
+  }
+  const cornerKeys = new Set()
+  for (const [key, item] of adj) {
+    if (item.neighbors.length === 2) {
+      const left = norm(sub(item.neighbors[0].vertex, item.vertex))
+      const right = norm(sub(item.neighbors[1].vertex, item.vertex))
+      if (dot(left, right) < -0.985) continue
+    }
+    cornerKeys.add(key)
+  }
+  return { adj, cornerKeys }
+}
+
+function cornerVertices(graph) {
+  return [...graph.cornerKeys].map((key) => graph.adj.get(key).vertex)
+}
+
+function chainsFrom(graph, startKey) {
+  const start = graph.adj.get(startKey)
+  if (!start || !graph.cornerKeys.has(startKey)) return []
+  const ends = []
+  for (const next of start.neighbors) {
+    const seen = new Set([startKey])
+    let prev = startKey
+    let current = next.key
+    let guard = 0
+    while (current && !seen.has(current) && guard < 10000) {
+      guard += 1
+      seen.add(current)
+      if (graph.cornerKeys.has(current)) {
+        ends.push(graph.adj.get(current).vertex)
+        break
+      }
+      const step = graph.adj.get(current)?.neighbors.find((item) => item.key !== prev)
+      if (!step) break
+      prev = current
+      current = step.key
+    }
+  }
+  return ends
+}
+
+// Tıklanan yere en yakın gerçek köşe. Düz kenarın ara noktası köşe değildir.
+export function snapModelCorner(triangles, point) {
+  return nearest(point, cornerVertices(cornerGraph(triangles)))
+}
+
+// Merkez köşeden giden kenarın öbür köşesi. Mesafe kenarın tamamıdır.
+export function snapEdgeCorner(triangles, point, anchor) {
+  if (!anchor) return null
+  const graph = cornerGraph(triangles)
+  let key = vertexKey(anchor)
+  if (!graph.cornerKeys.has(key)) {
+    const snapped = nearest(anchor, cornerVertices(graph))
+    if (!snapped) return null
+    key = vertexKey(snapped)
+  }
+  const end = nearest(point, chainsFrom(graph, key))
+  if (!end || vertexKey(end) === key) return null
+  return end
+}
+
 // mode: kose, kenar, yuzey. lock ikinci noktayı ilk yüzey ve yüksekliğe bağlar.
 export function snapReference(triangles, point, normal, mode, lock = null) {
   const n = norm(normal)
@@ -216,6 +331,23 @@ export function scaleFromPair(a, b, cm, fitS) {
   const distance = Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
   if (!(cm > 0) || !(fitS > 0) || distance < 1e-6) return null
   return cm / (fitS * distance)
+}
+
+// Ortak merkez köşeden giden kenarlar. Dolu eksenlerin ölçeği ortalanır.
+export function scaleFromEdges(kenar, size, fitS) {
+  const pairs = [
+    ['en', kenar?.en],
+    ['boy', kenar?.boy],
+    ['derinlik', kenar?.derinlik]
+  ]
+  const list = []
+  for (const [key, point] of pairs) {
+    if (!Array.isArray(kenar?.merkez) || !Array.isArray(point)) continue
+    const scale = scaleFromPair(kenar.merkez, point, size?.[key], fitS)
+    if (scale) list.push(scale)
+  }
+  if (!list.length) return null
+  return list.reduce((sum, value) => sum + value, 0) / list.length
 }
 
 export function pairCm(a, b, fitS, scale) {

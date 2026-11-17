@@ -234,6 +234,7 @@ export function markCube(picks, direction) {
     const dir = mesh.userData.dir
     const dot = direction ? dir[0] * direction[0] + dir[1] * direction[1] + dir[2] * direction[2] : 0
     const on = dot > 0.98
+    if (!mesh.material?.emissive) continue
     mesh.material.emissive.set(on ? 0xd86a2a : 0x000000)
     mesh.material.emissiveIntensity = on ? 0.85 : 0
   }

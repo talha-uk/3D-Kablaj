@@ -262,6 +262,16 @@ ul { list-style: none; margin: 0.4rem 0 0; padding: 0; display: flex; flex-direc
 
 .alan-form { display: flex; flex-direction: column; gap: 0.45rem; }
 .alan-form label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; }
+.alan-form fieldset {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  padding: 0.45rem 0.55rem 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.alan-form legend { padding-inline: 0.25rem; font-size: 0.85rem; }
 .alan-form input, .alan-form select {
   padding: 0.35rem 0.5rem;
   border: 1px solid var(--line);

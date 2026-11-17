@@ -6,7 +6,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { clone as cloneObject } from 'three/addons/utils/SkeletonUtils.js'
 import { focusFor } from './focus.js'
 import { SCHEMA_TILT, aimAhead, axisAngles, cameraPlacement, flyDelta, groundAxes, panFocus, schemaPose, turnLook } from './fly.js'
-import { snapReference } from './olcu.js'
+import { snapEdgeCorner, snapModelCorner, snapReference } from './olcu.js'
 import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
@@ -292,6 +292,18 @@ function jacketTexture(dashed) {
   texture.wrapT = THREE.RepeatWrapping
   texture.colorSpace = THREE.SRGBColorSpace
   return texture
+}
+
+function measureDots(record) {
+  const dots = []
+  const kenar = record?.olcu?.kenar
+  for (const key of ['merkez', 'en', 'boy', 'derinlik']) {
+    if (Array.isArray(kenar?.[key])) dots.push(kenar[key])
+  }
+  const cift = record?.olcu?.cift
+  if (Array.isArray(cift?.a)) dots.push(cift.a)
+  if (Array.isArray(cift?.b)) dots.push(cift.b)
+  return dots
 }
 
 function measure(scene) {
@@ -682,7 +694,7 @@ export class View {
     this.pivots.clear()
     for (const component of this.state.components) {
       const record = this.state.models.find((item) => item.id === component.modelId)
-      const signature = `${component.modelId}:${JSON.stringify(record?.ports || [])}:${JSON.stringify(record?.olcu?.points || [])}:${JSON.stringify(record?.olcu?.cift || null)}:${JSON.stringify(component.ports)}`
+      const signature = `${component.modelId}:${JSON.stringify(record?.ports || [])}:${JSON.stringify(record?.olcu?.kenar || null)}:${JSON.stringify(record?.olcu?.cift || null)}:${JSON.stringify(component.ports)}`
       let group = this.groups.get(component.id)
       if (!group || group.userData.signature !== signature) {
         if (group) {
@@ -722,7 +734,8 @@ export class View {
     const record = this.state.models.find((item) => item.id === component.modelId)
     const ports = [...(record?.ports || []), ...(component.ports || [])]
     for (const port of ports) align.add(this.makePort(component, port, fit.s))
-    this.addMeasureMarks(align, record?.olcu?.points || [], fit.s)
+    this.addMeasureDots(align, measureDots(record), fit.s)
+    this.addMeasureEdges(align, record?.olcu?.kenar)
     this.addMeasureLine(align, record?.olcu?.cift)
     const group = new THREE.Group()
     group.name = component.id
@@ -784,9 +797,9 @@ export class View {
     const model = modelId ? this.models.get(modelId) : null
     const record = this.state?.models.find((item) => item.id === modelId)
     const ports = record?.ports || []
-    const marks = record?.olcu?.points || []
+    const kenar = record?.olcu?.kenar || null
     const cift = record?.olcu?.cift || null
-    const signature = `${modelId}:${JSON.stringify(ports)}:${JSON.stringify(marks)}:${JSON.stringify(cift)}`
+    const signature = `${modelId}:${JSON.stringify(ports)}:${JSON.stringify(kenar)}:${JSON.stringify(cift)}`
     if (!model) {
       if (this.inspectRoot.userData.signature !== '') {
         this.clearGroup(this.inspectRoot)
@@ -816,7 +829,8 @@ export class View {
     })
     align.add(visual)
     for (const port of ports) align.add(this.makePort({ id: 'incele' }, port, fit.s))
-    this.addMeasureMarks(align, marks, fit.s)
+    this.addMeasureDots(align, measureDots(record), fit.s)
+    this.addMeasureEdges(align, kenar)
     this.addMeasureLine(align, cift)
     this.inspectRoot.add(align)
     this.indexPivots(this.inspectRoot)
@@ -1133,6 +1147,51 @@ export class View {
     this.perspective.position.set(center.x + radius * 0.75, center.y + radius * 0.55, center.z + radius)
     this.perspective.lookAt(center)
     this.orbit.update()
+  }
+
+  framePorts() {
+    const modelId = this.hooks.inspectModelId?.() || ''
+    const ports = this.state?.models.find((item) => item.id === modelId)?.ports || []
+    const points = []
+    const normal = new THREE.Vector3()
+    for (const port of ports) {
+      const framed = this.portFrame('incele', port.id)
+      if (!framed) continue
+      points.push(new THREE.Vector3().fromArray(framed.position))
+      normal.add(new THREE.Vector3().fromArray(framed.normal))
+    }
+    if (!points.length) {
+      this.hooks.status?.('Yüzeye tıklayıp port türünü seç.')
+      this.requestRender()
+      return
+    }
+    const box = new THREE.Box3().setFromPoints(points)
+    const center = box.getCenter(new THREE.Vector3())
+    const size = box.getSize(new THREE.Vector3())
+    const radius = Math.max(size.x, size.y, size.z, 0.35) * 1.8
+    if (normal.lengthSq() < 1e-8) normal.set(0.6, 0.45, 1)
+    normal.normalize()
+    this.orbit.target.copy(center)
+    this.perspective.up.set(0, 1, 0)
+    this.perspective.position.copy(center).addScaledVector(normal, radius)
+    this.perspective.lookAt(center)
+    this.orbit.update()
+    this.requestRender()
+  }
+
+  framePort(componentId, portId) {
+    const framed = this.portFrame(componentId, portId)
+    if (!framed) return
+    const position = new THREE.Vector3().fromArray(framed.position)
+    const normal = new THREE.Vector3().fromArray(framed.normal)
+    if (normal.lengthSq() < 1e-8) normal.set(0, 0, 1)
+    normal.normalize()
+    this.orbit.target.copy(position)
+    this.perspective.up.set(0, 1, 0)
+    this.perspective.position.copy(position).addScaledVector(normal, 0.42)
+    this.perspective.lookAt(position)
+    this.orbit.update()
+    this.requestRender()
   }
 
   placeSchema(x, z) {
@@ -1499,8 +1558,12 @@ export class View {
         this.createMeasurePoint(hit, hedef)
         return
       }
+      if (hedef === 'merkez' || hedef === 'en' || hedef === 'boy' || hedef === 'derinlik') {
+        this.createCornerMeasure(hit, hedef)
+        return
+      }
       if (this.tool === 'port') this.createModelPort(hit)
-      if (this.tool === 'olcu') this.createMeasurePoint(hit)
+      if (this.tool === 'olcu') this.hooks.status?.('Sağdan merkez, kenar ucu veya mesafe belirle.')
       return
     }
     if (this.mode === 'incele' && hit?.kind === 'port' && this.tool !== 'kablo') {
@@ -1534,22 +1597,33 @@ export class View {
     return this.models.get(modelId)?.fit || null
   }
 
-  addMeasureMarks(align, points, fitScale) {
-    for (const point of points) {
-      const geometry = new THREE.SphereGeometry(0.014 / fitScale, 16, 12)
+  addMeasureDots(align, positions, fitScale) {
+    for (const position of positions) {
+      const geometry = new THREE.SphereGeometry(0.006 / fitScale, 10, 8)
       geometry.userData.owned = true
-      const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
-        color: 0x2f8f4e,
-        roughness: 0.35,
-        metalness: 0.05,
-        emissive: 0x14532d,
-        emissiveIntensity: 0.45
-      }))
-      mesh.position.fromArray(point.position)
+      const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0xe10600, depthTest: false }))
+      mesh.position.fromArray(position)
+      mesh.renderOrder = 10
+      mesh.raycast = () => {}
       mesh.userData.kind = 'olcu'
-      mesh.userData.pointId = point.id
       align.add(mesh)
     }
+  }
+
+  addMeasureEdges(align, kenar) {
+    if (!Array.isArray(kenar?.merkez)) return
+    const points = []
+    for (const end of [kenar.en, kenar.boy, kenar.derinlik]) {
+      if (!Array.isArray(end)) continue
+      points.push(new THREE.Vector3().fromArray(kenar.merkez), new THREE.Vector3().fromArray(end))
+    }
+    if (!points.length) return
+    const geometry = new THREE.BufferGeometry().setFromPoints(points)
+    geometry.userData.owned = true
+    const line = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0xe10600 }))
+    line.userData.kind = 'olcu-cizgi'
+    line.raycast = () => {}
+    align.add(line)
   }
 
   addMeasureLine(align, cift) {
@@ -1617,6 +1691,35 @@ export class View {
       plane: result.plane,
       y: result.y
     })
+  }
+
+  createCornerMeasure(hit, hedef) {
+    const align = this.inspectRoot.children[0]
+    if (!align || !hit.object?.geometry) return
+    const inverse = align.matrixWorld.clone().invert()
+    const point = hit.point.clone().applyMatrix4(inverse)
+    const triangles = this.meshTriangles(hit.object, inverse)
+    const raw = [point.x, point.y, point.z]
+    if (hedef === 'merkez') {
+      const snapped = snapModelCorner(triangles, raw)
+      if (!snapped) {
+        this.hooks.status?.('Keskin bir köşe bulunamadı.')
+        return
+      }
+      this.hooks.onMeasurePoint?.({ position: snapped, hedef })
+      return
+    }
+    const anchor = this.hooks.olcuAnchor?.()
+    if (!anchor) {
+      this.hooks.status?.('Önce merkez köşeyi seç.')
+      return
+    }
+    const snapped = snapEdgeCorner(triangles, raw, anchor)
+    if (!snapped) {
+      this.hooks.status?.('Merkezden giden kenarın öbür köşesine tıkla.')
+      return
+    }
+    this.hooks.onMeasurePoint?.({ position: snapped, hedef })
   }
 
   createModelPort(hit) {

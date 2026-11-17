@@ -138,13 +138,24 @@ export function removeModel(state, modelId) {
   return { ...state, models: state.models.filter((item) => item.id !== modelId) }
 }
 
+function pointOrNull(value) {
+  return Array.isArray(value) && value.length >= 3 ? [value[0], value[1], value[2]] : null
+}
+
 export function measureOf(model) {
   const olcu = model?.olcu || {}
+  const kenar = olcu.kenar || {}
   return {
     points: olcu.points || [],
     en: olcu.en ?? null,
     boy: olcu.boy ?? null,
     derinlik: olcu.derinlik ?? null,
+    kenar: {
+      merkez: pointOrNull(kenar.merkez),
+      en: pointOrNull(kenar.en),
+      boy: pointOrNull(kenar.boy),
+      derinlik: pointOrNull(kenar.derinlik)
+    },
     cift: olcu.cift || null
   }
 }

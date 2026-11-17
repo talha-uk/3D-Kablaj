@@ -1,6 +1,6 @@
 import { View } from './scene.js'
 import { mount } from './ui.js'
-import { cableLengthCm, scaleFromBox, scaleFromPair } from './olcu.js'
+import { cableLengthCm, scaleFromEdges, scaleFromPair } from './olcu.js'
 import {
   addCable,
   matchCable,
@@ -40,13 +40,17 @@ const ui = mount({
     applyMode(mode)
     publish(false)
   },
-  onTool: (tool) => {
+  onTool: async (tool) => {
     if (tool === 'kablo' && uiState.mode === 'incele') return
     if (tool === 'port' && uiState.mode === 'sema') return
     if (tool === 'olcu' && uiState.mode !== 'incele') return
-    uiState = { ...uiState, tool }
+    const keepMeasure = tool === 'olcu'
+    uiState = { ...uiState, tool, olcuHedef: keepMeasure ? uiState.olcuHedef : null }
     view.setTool(tool)
-    publish(false)
+    await publish(false)
+    if (uiState.mode !== 'incele') return
+    if (tool === 'port') view.framePorts()
+    if (tool === 'olcu') view.frame()
   },
   onType: (cableType) => {
     uiState = { ...uiState, cableType }
@@ -100,11 +104,16 @@ const ui = mount({
     commit({ ...emptyState(), models: state.models }, 'Yeni düzenek.')
   },
   onDownload: () => downloadProject(state),
-  onOlcu: (modelId, olcu) => applyMeasure(modelId, olcu, 'kutu'),
+  onOlcu: (modelId, olcu) => applyMeasure(modelId, olcu, 'kenar'),
   onOlcuPair: (modelId, olcu) => applyMeasure(modelId, olcu, 'cift'),
   onOlcuHedef: (hedef) => {
-    uiState = { ...uiState, olcuHedef: uiState.olcuHedef === hedef ? null : hedef, mode: 'incele' }
+    const pickingPair = uiState.olcuHedef === 'a' || uiState.olcuHedef === 'b'
+    const next = hedef === 'mesafe'
+      ? (pickingPair ? null : 'a')
+      : (uiState.olcuHedef === hedef ? null : hedef)
+    uiState = { ...uiState, olcuHedef: next, mode: 'incele', tool: 'olcu' }
     view.setMode('incele')
+    view.setTool('olcu')
     publish(false)
   },
   fitOf: (modelId) => view.fitOf(modelId),
@@ -134,6 +143,11 @@ const view = new View(document.getElementById('sahne'), {
     const cift = model?.olcu?.cift
     if (!cift?.plane || !Array.isArray(cift.a)) return null
     return { plane: cift.plane, y: cift.y }
+  },
+  olcuAnchor: () => {
+    const model = state.models.find((item) => item.id === uiState.inspectId)
+    const merkez = model?.olcu?.kenar?.merkez
+    return Array.isArray(merkez) ? merkez : null
   },
   status: (text) => ui.status(text),
   onViewAngle: (angles) => ui.setAngles(angles),
@@ -190,8 +204,25 @@ const view = new View(document.getElementById('sahne'), {
       applyMeasure(modelId, olcu, 'cift')
       return
     }
-    olcu.points = [...olcu.points, { id: uid(), position: point.position }]
-    applyMeasure(modelId, olcu, 'kutu')
+    if (point.hedef === 'merkez' || point.hedef === 'en' || point.hedef === 'boy' || point.hedef === 'derinlik') {
+      const kenar = {
+        merkez: olcu.kenar.merkez,
+        en: olcu.kenar.en,
+        boy: olcu.kenar.boy,
+        derinlik: olcu.kenar.derinlik
+      }
+      if (point.hedef === 'merkez') {
+        kenar.merkez = point.position
+        kenar.en = null
+        kenar.boy = null
+        kenar.derinlik = null
+      } else {
+        kenar[point.hedef] = point.position
+      }
+      olcu.kenar = kenar
+      uiState = { ...uiState, olcuHedef: null }
+      applyMeasure(modelId, olcu, 'kenar')
+    }
   },
   cableOk: (ends) => {
     const a = portTypeOf(state, ends.a.componentId, ends.a.portId)
@@ -252,15 +283,19 @@ function pinInspect() {
   if (modelId) uiState = { ...uiState, inspectId: modelId }
 }
 
-function select(selection) {
+async function select(selection) {
   pinInspect()
+  const incele = uiState.mode === 'incele'
   uiState = { ...uiState, selection }
-  if (selection?.kind === 'port' && uiState.tool !== 'kablo') {
+  if (selection?.kind === 'port' && uiState.tool !== 'kablo' && !incele) {
     uiState = { ...uiState, tool: 'tasi' }
     view.setTool('tasi')
   }
   view.setSelection(uiState.selection)
-  publish(false)
+  await publish(false)
+  if (incele && selection?.kind === 'port' && selection.componentId === 'incele') {
+    view.framePort(selection.componentId, selection.portId)
+  }
 }
 
 function commit(next, message) {
@@ -336,8 +371,8 @@ function applyMeasure(modelId, olcu, source) {
   let olcek = null
   if (source === 'cift' && Array.isArray(olcu.cift?.a) && Array.isArray(olcu.cift?.b)) {
     olcek = scaleFromPair(olcu.cift.a, olcu.cift.b, olcu.cift.cm, fit?.s)
-  } else {
-    olcek = scaleFromBox(olcu.points, olcu, fit?.s)
+  } else if (source === 'kenar') {
+    olcek = scaleFromEdges(olcu.kenar, olcu, fit?.s)
   }
   commit(writeMeasure(state, modelId, olcu, olcek ?? model?.olcek ?? null), 'Ölçü güncellendi.')
 }
