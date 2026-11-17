@@ -6,7 +6,7 @@ import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
 import { routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
 import { addCable, addComponent, addModel, addPort, cableShown, emptyState, matchCable, uid } from '../src/state.js'
-import { cableLengthCm, decimalText, exteriorMask, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference, uniqueMeasureCorner } from '../src/olcu.js'
+import { cableLengthCm, decimalText, exteriorMask, nearestMeasureCorner, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference, uniqueMeasureCorner } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
 import fs from 'node:fs'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
@@ -353,6 +353,12 @@ check('derinlik boy eksenine kaymaz', depthPoint.kenar.derinlik[0] === 0 && dept
 const autoFace = [[[0, 0, 0], [2, 0, 0], [0, 1, 0]]]
 const autoEn = uniqueMeasureCorner(autoFace, [0, 0, 0], 'en')
 check('tek en köşesi otomatik', autoEn && autoEn[0] === 2 && autoEn[1] === 0 && autoEn[2] === 0)
+const axisCorners = [
+  [[0, 0, 0], [2, 0, 0], [0, 1, 0]],
+  [[0, 0, 0], [4, 0, 0], [0, 0, 1]]
+]
+const nearestEn = nearestMeasureCorner(axisCorners, [0, 0, 0], 'en', [3.2, 8, 8])
+check('en en yakın köşeye gider', nearestEn && nearestEn[0] === 4 && nearestEn[1] === 0 && nearestEn[2] === 0)
 const manyEn = uniqueMeasureCorner([
   [[0, 0, 0], [2, 0, 1], [0, 1, 0]],
   [[0, 0, 0], [2, 0, 1], [1, 0, 2]]

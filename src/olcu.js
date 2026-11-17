@@ -96,9 +96,8 @@ export function placeMeasurePoint(olcu, point) {
   return next
 }
 
-// Kendi ekseninde merkezden farklı tek bir köşe varsa o konumdur.
-export function uniqueMeasureCorner(triangles, anchor, hedef) {
-  if (!anchor || !triangles?.length) return null
+function measureCorners(triangles, anchor, hedef) {
+  if (!anchor || !triangles?.length) return []
   const corners = cornerVertices(cornerGraph(triangles))
   let min = [Infinity, Infinity, Infinity]
   let max = [-Infinity, -Infinity, -Infinity]
@@ -121,8 +120,32 @@ export function uniqueMeasureCorner(triangles, anchor, hedef) {
     seen.add(key)
     found.push(corner)
   }
+  return found
+}
+
+// Kendi ekseninde merkezden farklı tek bir köşe varsa o konumdur.
+export function uniqueMeasureCorner(triangles, anchor, hedef) {
+  const found = measureCorners(triangles, anchor, hedef)
   if (found.length !== 1) return null
   return measurePlane(found[0], anchor, hedef)
+}
+
+// Tıklamaya en yakın köşe. Nokta eksen üzerinde bir köşede durur.
+export function nearestMeasureCorner(triangles, anchor, hedef, hint) {
+  const found = measureCorners(triangles, anchor, hedef)
+  if (!found.length) return null
+  const free = hedef === 'en' ? 0 : hedef === 'boy' ? 1 : 2
+  const target = hint?.[free] ?? anchor[free]
+  let best = found[0]
+  let bestDist = Math.abs(best[free] - target)
+  for (const corner of found) {
+    const dist = Math.abs(corner[free] - target)
+    if (dist < bestDist) {
+      best = corner
+      bestDist = dist
+    }
+  }
+  return measurePlane(best, anchor, hedef)
 }
 
 function measurePlane(position, anchor, hedef) {

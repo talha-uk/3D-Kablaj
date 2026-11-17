@@ -6,7 +6,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { clone as cloneObject } from 'three/addons/utils/SkeletonUtils.js'
 import { focusFor } from './focus.js'
 import { SCHEMA_TILT, aimAhead, axisAngles, cameraPlacement, flyDelta, groundAxes, panFocus, schemaPose, turnLook } from './fly.js'
-import { exteriorMask, sameFaceTriangles, snapReference, uniqueMeasureCorner } from './olcu.js'
+import { exteriorMask, nearestMeasureCorner, sameFaceTriangles, snapModelCorner, snapReference, uniqueMeasureCorner } from './olcu.js'
 import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
@@ -1791,9 +1791,9 @@ export class View {
     })
   }
 
-  measureAutoPoints(anchor) {
+  inspectTriangles() {
     const align = this.inspectRoot.children[0]
-    if (!align || !anchor) return null
+    if (!align) return []
     align.updateWorldMatrix(true, false)
     const inverse = align.matrixWorld.clone().invert()
     const triangles = []
@@ -1801,6 +1801,16 @@ export class View {
       if (object.userData.kind !== 'submesh') return
       triangles.push(...this.meshTriangles(object, inverse))
     })
+    return triangles
+  }
+
+  nearestAxisCorner(anchor, hedef, hint) {
+    return nearestMeasureCorner(this.inspectTriangles(), anchor, hedef, hint)
+  }
+
+  measureAutoPoints(anchor) {
+    if (!anchor) return null
+    const triangles = this.inspectTriangles()
     return {
       en: uniqueMeasureCorner(triangles, anchor, 'en'),
       boy: uniqueMeasureCorner(triangles, anchor, 'boy'),
@@ -1814,11 +1824,27 @@ export class View {
     const inverse = align.matrixWorld.clone().invert()
     const point = hit.point.clone().applyMatrix4(inverse)
     const raw = [point.x, point.y, point.z]
-    if (hedef !== 'merkez' && !this.hooks.olcuAnchor?.()) {
+    const triangles = this.inspectTriangles()
+    if (hedef === 'merkez') {
+      const snapped = snapModelCorner(triangles, raw)
+      if (!snapped) {
+        if (!drag) this.hooks.status?.('Köşe bulunamadı.')
+        return
+      }
+      this.hooks.onMeasurePoint?.({ position: snapped, hedef, drag })
+      return
+    }
+    const anchor = this.hooks.olcuAnchor?.()
+    if (!anchor) {
       if (!drag) this.hooks.status?.('Önce merkez noktasını seç.')
       return
     }
-    this.hooks.onMeasurePoint?.({ position: raw, hedef, drag })
+    const snapped = nearestMeasureCorner(triangles, anchor, hedef, raw)
+    if (!snapped) {
+      if (!drag) this.hooks.status?.('Bu eksende köşe yok.')
+      return
+    }
+    this.hooks.onMeasurePoint?.({ position: snapped, hedef, drag })
   }
 
   createModelPort(hit) {

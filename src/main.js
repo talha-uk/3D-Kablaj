@@ -185,7 +185,8 @@ const view = new View(document.getElementById('sahne'), {
     if (!modelId) return
     const model = state.models.find((item) => item.id === modelId)
     let olcu = placeMeasurePoint(measureOf(model), point)
-    if (!point.drag && point.hedef === 'merkez') olcu = withAutoPoints(olcu, point.position)
+    if (point.hedef === 'merkez') olcu = pullAxisCorners(olcu)
+    if (!point.drag && point.hedef === 'merkez') olcu = withAutoPoints(olcu, olcu.kenar.merkez)
     const source = point.hedef === 'a' || point.hedef === 'b' ? 'cift' : 'kenar'
     if (point.drag) {
       previewMeasure(modelId, olcu, source)
@@ -340,6 +341,25 @@ function applyMode(mode) {
   uiState = { ...uiState, mode, tool }
   view.setMode(mode)
   view.setTool(tool)
+}
+
+function pullAxisCorners(olcu) {
+  const anchor = olcu?.kenar?.merkez
+  if (!anchor) return olcu
+  const kenar = { ...olcu.kenar }
+  let changed = false
+  for (const key of ['en', 'boy', 'derinlik']) {
+    if (!kenar[key]) continue
+    const snapped = view.nearestAxisCorner(anchor, key, kenar[key])
+    const same = snapped
+      && snapped[0] === kenar[key][0]
+      && snapped[1] === kenar[key][1]
+      && snapped[2] === kenar[key][2]
+    if (same) continue
+    kenar[key] = snapped
+    changed = true
+  }
+  return changed ? { ...olcu, kenar } : olcu
 }
 
 function withAutoPoints(olcu, anchor = olcu?.kenar?.merkez) {
