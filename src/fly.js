@@ -37,13 +37,20 @@ export function flyDelta(camera, input, distance, planar = false) {
   return move.normalize().multiplyScalar(distance)
 }
 
-// Birim/saniye. Dizine kadar uzaklıkla doğrusal; sonrası tavana yaslanır.
-// span 2 → 1.4, span 5.4 → 3.78, span 40 → ~5.7.
+export const SPEED_MIN = 0.8
+export const SPEED_MAX = 2.4
+
+// Birim/saniye. Uzaklıkla artar, tekerlek yakınında 0.8, uzağında 2.4.
 export function flySpeed(span) {
   const distance = Math.max(0, Number(span) || 0)
   const knee = 6
   const extra = distance > knee ? 2.4 * (1 - Math.exp(-(distance - knee) / 14)) : 0
-  return Math.max(0.08, (Math.min(distance, knee) + extra) * 0.7)
+  const raw = (Math.min(distance, knee) + extra) * 0.7
+  return Math.min(SPEED_MAX, Math.max(SPEED_MIN, raw))
+}
+
+export function flyRate(span, fast = false) {
+  return Math.min(SPEED_MAX, flySpeed(span) * (fast ? 2.4 : 1))
 }
 
 // Bir çentik yaklaşık 100 piksel. Daha büyük bir olay tavana takılır.

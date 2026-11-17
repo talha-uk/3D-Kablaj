@@ -5,7 +5,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { clone as cloneObject } from 'three/addons/utils/SkeletonUtils.js'
 import { focusFor } from './focus.js'
-import { SCHEMA_TILT, aimAhead, axisAngles, cameraPlacement, dollyScale, flyDelta, flySpeed, groundAxes, panFocus, schemaPose, turnLook, wheelPixels } from './fly.js'
+import { SCHEMA_TILT, aimAhead, axisAngles, cameraPlacement, dollyScale, flyDelta, flyRate, groundAxes, panFocus, schemaPose, turnLook, wheelPixels } from './fly.js'
 import { exteriorMask, nearestMeasureCorner, sameFaceTriangles, snapModelCorner, snapReference, uniqueMeasureCorner } from './olcu.js'
 import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
@@ -541,7 +541,7 @@ export class View {
     const span = this.mode === 'sema'
       ? this.viewHalf / Math.max(this.ortho.zoom, 0.2)
       : this.perspective.position.distanceTo(this.orbit.target)
-    const step = flySpeed(span) * (this.flyFast ? 2.4 : 1) * dt
+    const step = flyRate(span, this.flyFast) * dt
     const delta = flyDelta(camera, { forward, strafe, lift }, step, this.mode === 'sema')
     if (delta.lengthSq() < 1e-10 || !(dt > 0)) return 0
     if (this.mode === 'sema') {

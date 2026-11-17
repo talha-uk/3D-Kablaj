@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { dosyaUygun } from '../src/bicim.js'
-import { SCHEMA_TILT, aimAhead, axisAngles, cameraBasis, cameraPlacement, dollyScale, faceBasis, flyDelta, flySpeed, groundAxes, panFocus, pickView, schemaPose, turnLook, wheelPixels } from '../src/fly.js'
+import { SCHEMA_TILT, aimAhead, axisAngles, cameraBasis, cameraPlacement, dollyScale, faceBasis, flyDelta, flyRate, flySpeed, groundAxes, panFocus, pickView, schemaPose, turnLook, wheelPixels } from '../src/fly.js'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { headingFromQuaternion, portOrientation, portRoll } from '../src/yaw.js'
 import { softSnap, softSnapAngle } from '../src/snap.js'
@@ -148,10 +148,10 @@ const nearSpeed = flySpeed(0.12)
 const framedSpeed = flySpeed(2)
 const homeSpeed = flySpeed(5.4)
 const farSpeed = flySpeed(40)
-const hugeSpeed = flySpeed(200)
-check('yakın çekimde uçuş yavaşlar', nearSpeed > 0.05 && nearSpeed < 0.2)
-check('normal uzaklıkta hız korunur', Math.abs(framedSpeed - 1.4) < 0.02 && Math.abs(homeSpeed - 3.78) < 0.02)
-check('uzaklaşınca hız tavana oturur', farSpeed > homeSpeed && farSpeed < 6.2 && hugeSpeed <= farSpeed + 0.4 && hugeSpeed < 6.2)
+check('yakın çekimde hız 0.8 birim', nearSpeed === 0.8)
+check('orta uzaklıkta hız korunur', Math.abs(framedSpeed - 1.4) < 0.02)
+check('hız 2.4 birimi geçmez', homeSpeed === 2.4 && farSpeed === 2.4 && flySpeed(200) === 2.4)
+check('shift de 2.4 birimde kalır', flyRate(0.12, true) > 0.8 && flyRate(0.12, true) <= 2.4 && flyRate(40, true) === 2.4)
 check('çentik zoomu aynı kalır', Math.abs(dollyScale(wheelPixels({ deltaY: 100, deltaMode: 0 })) - 0.95) < 1e-9)
 check('dev tekerlek tavana takılır', wheelPixels({ deltaY: 4000, deltaMode: 0 }) === 140)
 check('sıkıştırma da tavana takılır', wheelPixels({ deltaY: 200, deltaMode: 0, ctrlKey: true }) === 140)
