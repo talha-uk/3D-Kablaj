@@ -21,6 +21,7 @@ import {
   removeModel,
   removeModelPort,
   removePort,
+  setPortCins,
   uid,
   updateCable,
   updateComponent,
@@ -89,6 +90,7 @@ const ui = mount({
   },
   onRemovePort: (componentId, portId) => commit(removePort(state, componentId, portId), 'Port silindi.'),
   onRemoveModelPort: (modelId, portId) => commit(removeModelPort(state, modelId, portId), 'Port silindi.'),
+  onPortCins: (portId, cins) => commit(setPortCins(state, portId, cins), cins === 'erkek' ? 'Port erkek.' : 'Port dişi.'),
   onRenameCable: (id, name) => commit(updateCable(state, id, { name })),
   onCableType: (id, type) => commit(updateCable(state, id, { type })),
   onDeleteCable: async (id) => {
@@ -181,6 +183,7 @@ const view = new View(document.getElementById('sahne'), {
       id: uid(),
       name: `${typeName(type)} ${count}`,
       type,
+      cins: 'disi',
       position: port.position,
       normal: port.normal
     }), 'Port işaretlendi.')

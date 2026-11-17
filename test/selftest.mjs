@@ -6,7 +6,7 @@ import { headingFromQuaternion, portOrientation, portRoll } from '../src/yaw.js'
 import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
 import { cableRadius, CABLE_OD_MM, plugReach, routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
-import { addCable, addComponent, addModel, addPort, cableShown, emptyState, matchCable, modelSolid, uid } from '../src/state.js'
+import { addCable, addComponent, addModel, addPort, cableCins, cableShown, emptyState, matchCable, modelSolid, portHasGender, uid } from '../src/state.js'
 import { cableLengthCm, decimalText, exteriorMask, modelUnit, nearestMeasureCorner, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference, uniqueMeasureCorner } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
 import fs from 'node:fs'
@@ -163,6 +163,10 @@ check('dev tekerlek tavana takılır', wheelPixels({ deltaY: 4000, deltaMode: 0 
 check('sıkıştırma da tavana takılır', wheelPixels({ deltaY: 200, deltaMode: 0, ctrlKey: true }) === 140)
 check('glb ve solid dosyası yüklenir', dosyaUygun('kutu.glb') && dosyaUygun('parca.SLDPRT') && !dosyaUygun('not.txt'))
 check('solid modelde ölçü dosyadan gelir', modelSolid({ birim: 'cm', boyut: '10 mm' }) && !modelSolid({ name: 'kutu' }))
+check('dişi porta erkek kablo', cableCins({ cins: 'disi' }) === 'erkek' && cableCins({}) === 'erkek')
+check('erkek porta dişi kablo', cableCins({ cins: 'erkek' }) === 'disi')
+check('sma ve n cins seçilir', portHasGender('sma') && portHasGender('ntype') && portHasGender('guc'))
+check('ethernet ve type-c yuvadır', !portHasGender('ag') && !portHasGender('usbc'))
 
 const still = new THREE.PerspectiveCamera(45, 1, 0.1, 100)
 still.position.set(3, 2.4, 4)

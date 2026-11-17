@@ -1,6 +1,6 @@
 import { modelSolid } from './state.js'
 import { decimalText, pairCm } from './olcu.js'
-import { componentName, componentPorts, matchCable, measureOf, portName, portTypeOf, typeName } from './state.js'
+import { cableCins, componentName, componentPorts, matchCable, measureOf, portCins, portHasGender, portName, portTypeOf, typeName } from './state.js'
 import { bindTabs, bindToolbar } from './keys.js'
 
 function button(label, onClick) {
@@ -278,6 +278,35 @@ export function mount(hooks) {
     return wrap
   }
 
+  function genderField(port) {
+    const field = document.createElement('fieldset')
+    field.className = 'uc'
+    const legend = document.createElement('legend')
+    legend.textContent = 'Uç'
+    field.append(legend)
+    const current = portCins(port)
+    for (const [value, label] of [['disi', 'Dişi'], ['erkek', 'Erkek']]) {
+      const lab = document.createElement('label')
+      const input = document.createElement('input')
+      input.type = 'radio'
+      input.name = `cins-${port.id}`
+      input.value = value
+      input.checked = current === value
+      input.addEventListener('change', () => {
+        if (input.checked) hooks.onPortCins?.(port.id, value)
+      })
+      lab.append(input, document.createTextNode(` ${label}`))
+      field.append(lab)
+    }
+    const note = document.createElement('p')
+    note.className = 'not'
+    note.textContent = cableCins(port) === 'erkek'
+      ? 'Kablo bu yuvaya erkek uçla gelir.'
+      : 'Kablo bu yuvaya dişi uçla gelir.'
+    field.append(note)
+    return field
+  }
+
   function portList(model, chosenPort) {
     const ports = document.createElement('ul')
     for (const port of model.ports || []) {
@@ -289,6 +318,7 @@ export function mount(hooks) {
       name.addEventListener('pointerenter', () => hooks.onHover?.(pick))
       name.addEventListener('pointerleave', () => hooks.onHover?.(null))
       row.append(name, button('Sil', () => hooks.onRemoveModelPort?.(model.id, port.id)))
+      if (chosenPort?.portId === port.id && portHasGender(port.type)) row.append(genderField(port))
       ports.append(row)
     }
     return disclosure('portlar', 'Portlar', ports)

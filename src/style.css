@@ -554,6 +554,16 @@ dialog::backdrop {
 }
 dialog:modal { overscroll-behavior: contain; }
 dialog .satir { display: flex; flex-wrap: wrap; justify-content: end; gap: 0.4rem; margin-block-start: 0.8rem; }
+fieldset.uc {
+  border: 0;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.8rem;
+}
+fieldset.uc legend { width: 100%; padding: 0; font-size: 0.75rem; color: var(--muted); }
+fieldset.uc .not { width: 100%; margin: 0; }
 dialog label { display: flex; flex-direction: column; gap: 0.3rem; }
 dialog input { padding: 0.4rem 0.5rem; border: 1px solid var(--line); background: var(--bg); border-radius: 0.4rem; }
 

@@ -40,6 +40,20 @@ export function modelSolid(model) {
   return model?.birim === 'cm' || Boolean(model?.boyut)
 }
 
+const GENDERED = new Set(['sma', 'rf', 'ntype', 'usb', 'usb2', 'usb3', 'guc'])
+
+export function portHasGender(type) {
+  return GENDERED.has(type)
+}
+
+export function portCins(port) {
+  return port?.cins === 'erkek' ? 'erkek' : 'disi'
+}
+
+export function cableCins(port) {
+  return portCins(port) === 'erkek' ? 'disi' : 'erkek'
+}
+
 export function typeName(id) {
   return PORT_TYPES.find((item) => item.id === id)?.name
     || CABLE_TYPES.find((item) => item.id === id)?.name
@@ -91,6 +105,16 @@ export function addModelPort(state, modelId, port) {
     models: state.models.map((item) => (
       item.id === modelId ? { ...item, ports: [...(item.ports || []), port] } : item
     ))
+  }
+}
+
+export function setPortCins(state, portId, cins) {
+  const patch = { cins: cins === 'erkek' ? 'erkek' : 'disi' }
+  const mapPorts = (ports) => (ports || []).map((port) => (port.id === portId ? { ...port, ...patch } : port))
+  return {
+    ...state,
+    models: state.models.map((item) => ({ ...item, ports: mapPorts(item.ports) })),
+    components: state.components.map((item) => ({ ...item, ports: mapPorts(item.ports) }))
   }
 }
 

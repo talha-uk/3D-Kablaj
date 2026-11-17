@@ -11,7 +11,7 @@ import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
 import { cableRadius, plugReach, SCHEMA_LIFT, routeClear, routeSchema, routeVia } from './route.js'
-import { cableShown, modelSolid, portTypeOf } from './state.js'
+import { cableCins, cableShown, modelSolid, portRecord, portTypeOf } from './state.js'
 
 function ownedBox(width, height, depth) {
   const geometry = new THREE.BoxGeometry(width, height, depth)
@@ -104,7 +104,26 @@ function putPort(pivot, geometry, material, component, port, x, y, z) {
   return mesh
 }
 
+function addCoaxMalePanel(pivot, fit, component, port, nType) {
+  const metal = portMaterial(nType ? 0xd5dee7 : 0xe4c56a, nType ? 0.8 : 0.72, nType ? 0.3 : 0.3)
+  const pinMat = portMaterial(0xf3d48a, 0.92, 0.16)
+  const ptfe = portMaterial(0xf4f0e6, 0.02, 0.42)
+  const hexR = mm(fit, nType ? 9.8 : 4.62)
+  const nutR = mm(fit, nType ? 11 : 5.5)
+  const pinR = mm(fit, nType ? 0.75 : 0.48)
+  const nutT = mm(fit, nType ? 3.4 : 2.2)
+  const buried = mm(fit, nType ? 13 : 9)
+  const nutLen = mm(fit, nType ? 8 : 6)
+  const nutCenter = mm(fit, nType ? 6 : 4.4)
+  putPort(pivot, ownedCylinder(hexR, hexR, nutT, 6), metal, component, port, 0, nutT * 0.08, 0)
+  putPort(pivot, ownedCylinder(mm(fit, nType ? 4.2 : 2.6), mm(fit, nType ? 4.2 : 2.6), buried, 16), metal, component, port, 0, -buried / 2, 0)
+  putPort(pivot, ownedRing(pinR * 1.8, mm(fit, nType ? 3.2 : 2.1)), ptfe, component, port, 0, mm(fit, 1.3), 0)
+  putPort(pivot, ownedCylinder(pinR, pinR, mm(fit, nType ? 4.2 : 3.4), 12), pinMat, component, port, 0, mm(fit, 2.1), 0)
+  putPort(pivot, ownedCylinder(nutR, nutR, nutLen, 6), metal, component, port, 0, nutCenter, 0)
+}
+
 function addCoaxPort(pivot, fit, component, port, nType) {
+  if (port?.cins === 'erkek') return addCoaxMalePanel(pivot, fit, component, port, nType)
   const metal = portMaterial(nType ? 0xd5dee7 : 0xe4c56a, nType ? 0.8 : 0.7, nType ? 0.3 : 0.32)
   const ptfe = portMaterial(0xf4f0e6, 0.02, 0.42)
   const socket = portMaterial(0x121416, 0.3, 0.48)
@@ -134,7 +153,22 @@ function addCoaxPort(pivot, fit, component, port, nType) {
   putPort(pivot, ownedCylinder(barrelR * 0.2, barrelR * 0.2, mm(fit, 1.4), 12), socket, component, port, 0, face - mm(fit, 0.55), 0)
 }
 
+function addUsbAMalePanel(pivot, fit, component, port, blue) {
+  const shell = portMaterial(0xe7ecef, 0.6, 0.3)
+  const tongueMat = portMaterial(blue ? 0x1e3a8a : 0x101216, 0.06, 0.4)
+  const house = portMaterial(0x1a1c1f, 0.08, 0.55)
+  const width = mm(fit, 12)
+  const thick = mm(fit, 4.5)
+  const nose = mm(fit, 12)
+  const buried = mm(fit, 8)
+  putPort(pivot, ownedBox(width * 1.15, mm(fit, 2), thick * 1.4), house, component, port, 0, mm(fit, 0.2), 0)
+  putPort(pivot, ownedBox(width * 0.9, buried, thick), shell, component, port, 0, -buried / 2, 0)
+  putPort(pivot, ownedBox(width, nose, thick), shell, component, port, 0, nose / 2, 0)
+  putPort(pivot, ownedBox(width * 0.7, nose * 0.45, thick * 0.22), tongueMat, component, port, 0, nose * 0.35, 0)
+}
+
 function addUsbAPort(pivot, fit, component, port, blue) {
+  if (port?.cins === 'erkek') return addUsbAMalePanel(pivot, fit, component, port, blue)
   const shell = portMaterial(0xe7ecef, 0.55, 0.32)
   const house = portMaterial(blue ? 0x1d4ed8 : 0x1a1c1f, 0.08, 0.55)
   const tongueMat = portMaterial(blue ? 0x1e3a8a : 0x101216, 0.06, 0.4)
@@ -219,6 +253,22 @@ function cm(value) {
   return value / 10
 }
 
+function addCoaxJackPlug(group, cableId, nType) {
+  const metal = endMat(nType ? 0xd5dee7 : 0xe4c56a, nType ? 0.8 : 0.72, 0.3)
+  const ptfe = endMat(0xf4f0e6, 0.02, 0.42)
+  const socket = endMat(0x121416, 0.3, 0.48)
+  const boot = endMat(0x161616, 0.06, 0.72)
+  const barrelR = cm(nType ? 5.2 : 3.18)
+  const barrelLen = cm(nType ? 7.5 : 5.2)
+  endMesh(group, ownedCylinder(barrelR, barrelR, barrelLen, 24), metal, 0, cm(nType ? 2.2 : 1.6), 0, cableId)
+  endMesh(group, ownedRing(barrelR * 0.28, barrelR * 0.78), ptfe, 0, cm(0.35), 0, cableId)
+  endMesh(group, ownedCylinder(barrelR * 0.2, barrelR * 0.2, cm(1.6), 12), socket, 0, cm(0.7), 0, cableId)
+  const bodyR = cm(nType ? 6.2 : 3.5)
+  endMesh(group, ownedCylinder(bodyR, bodyR, cm(nType ? 8 : 6), 18), metal, 0, barrelLen + cm(nType ? 2 : 1.6), 0, cableId)
+  endMesh(group, ownedCylinder(bodyR, cm(nType ? 5.4 : 2.4), cm(nType ? 8 : 6), 16), boot, 0, cm(nType ? 16 : 12), 0, cableId)
+  return nType ? 2.36 : 1.74
+}
+
 function addCoaxPlug(group, cableId, nType) {
   const metal = endMat(nType ? 0xd7e0e8 : 0xe8c96a, nType ? 0.84 : 0.76, 0.26)
   const pinMat = endMat(0xf6d78c, 0.92, 0.14)
@@ -272,6 +322,18 @@ function addRjPlug(group, cableId) {
   return nose + body
 }
 
+function addUsbAJackPlug(group, cableId, blue) {
+  const shell = endMat(0xe7ecef, 0.65, 0.3)
+  const house = endMat(blue ? 0x1d4ed8 : 0x1a1c1f, 0.08, 0.55)
+  const boot = endMat(0x222222, 0.06, 0.66)
+  const width = cm(13.4)
+  const thick = cm(6.2)
+  endMesh(group, ownedBox(width, cm(10), thick), shell, 0, cm(2), 0, cableId)
+  endMesh(group, ownedBox(width * 0.82, cm(3), thick * 0.55), house, 0, cm(0.4), 0, cableId)
+  endMesh(group, ownedCylinder(cm(4.2), cm(2.6), cm(10), 16), boot, 0, cm(10), 0, cableId)
+  return 1.8
+}
+
 function addUsbAPlug(group, cableId, blue) {
   const shell = endMat(0xe7ecef, 0.7, 0.28)
   const house = endMat(blue ? 0x1d4ed8 : 0x1c1c1c, 0.08, 0.5)
@@ -296,6 +358,16 @@ function addUsbCPlug(group, cableId) {
   return nose + cm(8)
 }
 
+function addBarrelJackPlug(group, cableId) {
+  const steel = endMat(0xd5dbe2, 0.75, 0.3)
+  const black = endMat(0x1a1a1a, 0.08, 0.62)
+  const bore = endMat(0x101214, 0.15, 0.6)
+  endMesh(group, ownedCylinder(cm(4.6), cm(4.6), cm(8), 20), steel, 0, cm(1.5), 0, cableId)
+  endMesh(group, ownedRing(cm(1.3), cm(3.2)), bore, 0, cm(0.4), 0, cableId)
+  endMesh(group, ownedCylinder(cm(4.2), cm(2.6), cm(10), 16), black, 0, cm(8), 0, cableId)
+  return 1.4
+}
+
 function addBarrelPlug(group, cableId) {
   const steel = endMat(0xd5dbe2, 0.78, 0.28)
   const black = endMat(0x1a1a1a, 0.08, 0.62)
@@ -312,18 +384,29 @@ function addPlainBoot(group, cableId) {
   return cm(7)
 }
 
-function addCablePlug(group, type, cableId) {
-  if (type === 'sma' || type === 'rf') return addCoaxPlug(group, cableId, false)
-  if (type === 'ntype') return addCoaxPlug(group, cableId, true)
+function addCablePlug(group, type, cableId, cins = 'erkek') {
+  const disi = cins === 'disi'
+  if (type === 'sma' || type === 'rf') return disi ? addCoaxJackPlug(group, cableId, false) : addCoaxPlug(group, cableId, false)
+  if (type === 'ntype') return disi ? addCoaxJackPlug(group, cableId, true) : addCoaxPlug(group, cableId, true)
   if (type === 'ag') return addRjPlug(group, cableId)
-  if (type === 'usb3') return addUsbAPlug(group, cableId, true)
-  if (type === 'usb' || type === 'usb2') return addUsbAPlug(group, cableId, false)
+  if (type === 'usb3') return disi ? addUsbAJackPlug(group, cableId, true) : addUsbAPlug(group, cableId, true)
+  if (type === 'usb' || type === 'usb2') return disi ? addUsbAJackPlug(group, cableId, false) : addUsbAPlug(group, cableId, false)
   if (type === 'usbc') return addUsbCPlug(group, cableId)
-  if (type === 'guc') return addBarrelPlug(group, cableId)
+  if (type === 'guc') return disi ? addBarrelJackPlug(group, cableId) : addBarrelPlug(group, cableId)
   return addPlainBoot(group, cableId)
 }
 
+function addPowerMalePanel(pivot, fit, component, port) {
+  const black = portMaterial(0x1a1c1f, 0.12, 0.58)
+  const steel = portMaterial(0xd5dbe2, 0.75, 0.3)
+  const pinMat = portMaterial(0xc9ccd0, 0.82, 0.26)
+  putPort(pivot, ownedCylinder(mm(fit, 5.5), mm(fit, 5.5), mm(fit, 2.2), 6), black, component, port, 0, mm(fit, 0.2), 0)
+  putPort(pivot, ownedCylinder(mm(fit, 2.6), mm(fit, 2.6), mm(fit, 9), 20), steel, component, port, 0, mm(fit, 3.2), 0)
+  putPort(pivot, ownedCylinder(mm(fit, 0.9), mm(fit, 0.9), mm(fit, 4), 12), pinMat, component, port, 0, mm(fit, 2.4), 0)
+}
+
 function addPowerPort(pivot, fit, component, port) {
+  if (port?.cins === 'erkek') return addPowerMalePanel(pivot, fit, component, port)
   const black = portMaterial(0x1a1c1f, 0.12, 0.58)
   const steel = portMaterial(0xd5dbe2, 0.72, 0.32)
   const bore = portMaterial(0x101214, 0.15, 0.6)
@@ -1256,6 +1339,13 @@ export class View {
     }
   }
 
+  plugCins(cableId, end) {
+    const cable = this.state?.cables?.find((item) => item.id === cableId)
+    const side = end === 'b' ? cable?.b : cable?.a
+    if (!side) return 'erkek'
+    return cableCins(portRecord(this.state, side.componentId, side.portId))
+  }
+
   addCableEnd(frame, type, cableId, end) {
     const group = new THREE.Group()
     const home = new THREE.Vector3().fromArray(frame.position)
@@ -1267,7 +1357,7 @@ export class View {
     group.userData.end = end
     group.userData.cableId = cableId
     group.userData.home = home
-    addCablePlug(group, type, cableId)
+    addCablePlug(group, type, cableId, this.plugCins(cableId, end))
     group.traverse((object) => {
       if (!object.isMesh) return
       object.userData.kind = 'plug'
