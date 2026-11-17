@@ -324,8 +324,8 @@ const firstCorner = snapReference([...side, ...top], [0, 0.2, 0.2], [1, 0, 0], '
 check('köşe aynı yüze yapışır', firstCorner && firstCorner.position[1] === 0 && firstCorner.position[2] === 0)
 const secondCorner = snapReference([...side, ...top], [0, 1.8, 1.7], [1, 0, 0], 'kose', { plane: firstCorner.plane })
 check('ikinci köşe farklı yükseklikte olur', secondCorner && secondCorner.position[1] === 2 && secondCorner.position[2] === 2)
-const otherFace = snapReference([...side, ...top], [0.2, 2, 0.4], [0, 1, 0], 'yuzey', { plane: firstCorner.plane })
-check('başka yüzey kabul edilmez', otherFace === null)
+const otherFace = snapReference([...side, ...top], [0.2, 2, 0.4], [0, 1, 0], 'yuzey')
+check('başka yüzey kabul edilir', otherFace && Math.abs(otherFace.position[1] - 2) < 1e-6)
 const levelPoint = snapReference(side, [0, 1.4, 1.1], [1, 0, 0], 'yuzey', { plane: firstCorner.plane })
 check('aynı yüzde yükseklik serbest', levelPoint && Math.abs(levelPoint.position[1] - 1.4) < 1e-6 && Math.abs(levelPoint.position[2] - 1.1) < 1e-6)
 const nearEdge = snapReference(side, [0, 0.4, 0.15], [1, 0, 0], 'kenar')
@@ -347,7 +347,7 @@ check('merkez değişince uç düşer', jumped.kenar.en == null && jumped.kenar.
 const sameFace = placeMeasurePoint(held, { hedef: 'a', position: [0, 0.4, 0.2], plane: { normal: [1, 0, 0], d: 0 }, y: 0.4, drag: true })
 check('aynı yüzde ikinci nokta durur', sameFace.cift.b && sameFace.cift.b[1] === 1)
 const otherFaceMove = placeMeasurePoint(held, { hedef: 'a', position: [1, 2, 0], plane: { normal: [0, 1, 0], d: 2 }, y: 2, drag: true })
-check('yüz değişince ikinci nokta düşer', otherFaceMove.cift.b == null)
+check('yüz değişince ikinci nokta durur', otherFaceMove.cift.b && otherFaceMove.cift.b[1] === 1)
 const edgeMove = placeMeasurePoint(
   { ...held, cift: { ...held.cift, snap: 'kenar' } },
   { hedef: 'a', position: [3, 0, 0], plane: { normal: [0, 0, 1], d: 0 }, y: 0, drag: true }

@@ -48,14 +48,6 @@ function sameVec(a, b) {
   return Array.isArray(a) && Array.isArray(b) && vertexKey(a) === vertexKey(b)
 }
 
-function samePlane(a, b) {
-  if (!a?.normal || !b?.normal) return false
-  const align = a.normal[0] * b.normal[0] + a.normal[1] * b.normal[1] + a.normal[2] * b.normal[2]
-  if (Math.abs(align) < 0.999) return false
-  const d = align < 0 ? -b.d : b.d
-  return Math.abs(a.d - d) < 1e-3
-}
-
 // Seçili noktayı yeni yerine yazar. Sürüklerken bağlı uç kuralı bozulursa düşer.
 export function placeMeasurePoint(olcu, point) {
   const next = {
@@ -83,8 +75,7 @@ export function placeMeasurePoint(olcu, point) {
     }
     cift[point.hedef] = point.position
     if (point.hedef === 'a') {
-      const faceChanged = cift.b && !samePlane(cift.plane, point.plane)
-      if (!point.drag || (faceChanged && cift.snap !== 'kenar')) cift.b = null
+      if (!point.drag) cift.b = null
       cift.plane = point.plane
       cift.y = point.y
     }
@@ -332,7 +323,7 @@ export function snapEdgeCorner(triangles, point, anchor) {
   return end
 }
 
-// mode: kose, kenar, yuzey. Köşe ve yüzey ikinci noktayı ilk yüzeye bağlar. Kenar her tıkı en yakın kenara alır.
+// mode: kose, kenar, yuzey. İki nokta ayrı yüzde olabilir. Kenar her tıkı en yakın kenara alır.
 export function snapReference(triangles, point, normal, mode, lock = null) {
   const n = norm(normal)
   const d = dot(n, point)

@@ -114,7 +114,7 @@ export function mount(hooks) {
       : ui.olcuHedef === 'b'
         ? (snap === 'kenar'
           ? 'İstediğin kenara tıkla. Karşı kenar da olur. Nokta en yakın kenara yapışır.'
-          : `İkinci noktayı aynı yüzde, ${snapName[snap]} tıkla. Yükseklik serbest.`)
+          : `İkinci noktayı istediğin yüzde, ${snapName[snap]} tıkla.`)
         : ui.olcuHedef === 'merkez'
           ? 'Ortak merkez köşeye tıkla. En, boy ve derinlik bu köşeden çıkar.'
           : axisName[ui.olcuHedef]

@@ -1689,16 +1689,15 @@ export class View {
       return
     }
     const snap = this.hooks.olcuSnap?.() || 'yuzey'
-    const lock = hedef === 'b' && snap !== 'kenar' ? this.hooks.olcuLock?.() : null
     const result = snapReference(
       this.meshTriangles(hit.object, inverse),
       [point.x, point.y, point.z],
       [normal.x, normal.y, normal.z],
       snap,
-      lock
+      null
     )
     if (!result) {
-      if (!drag) this.hooks.status?.(snap === 'kenar' ? 'Keskin bir kenar bulunamadı.' : 'Aynı yüzeyde seç.')
+      if (!drag) this.hooks.status?.(snap === 'kenar' ? 'Keskin bir kenar bulunamadı.' : 'Bu tıkta nokta bulunamadı.')
       return
     }
     this.hooks.onMeasurePoint?.({
