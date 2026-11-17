@@ -6,7 +6,7 @@ import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
 import { routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
 import { addCable, addComponent, addModel, addPort, cableShown, emptyState, matchCable, uid } from '../src/state.js'
-import { cableLengthCm, decimalText, exteriorMask, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapEdgeCorner, snapModelCorner, snapReference } from '../src/olcu.js'
+import { cableLengthCm, decimalText, exteriorMask, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
 import fs from 'node:fs'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
@@ -341,9 +341,15 @@ const held = {
   cift: { a: [0, 0, 0], b: [0, 1, 0], snap: 'yuzey', plane: { normal: [1, 0, 0], d: 0 }, y: 0, cm: null, color: '#2f8f4e' }
 }
 const heldStill = placeMeasurePoint(held, { hedef: 'merkez', position: [0, 0, 0], drag: true })
-check('aynı köşede uç durur', heldStill.kenar.en && heldStill.kenar.en[0] === 2)
-const jumped = placeMeasurePoint(held, { hedef: 'merkez', position: [0, 2, 0], drag: true })
-check('merkez değişince uç düşer', jumped.kenar.en == null && jumped.kenar.merkez[1] === 2)
+check('aynı merkezde en durur', heldStill.kenar.en && heldStill.kenar.en[0] === 2 && heldStill.kenar.en[1] === 0)
+const jumped = placeMeasurePoint(held, { hedef: 'merkez', position: [0, 2, 1], drag: true })
+check('merkez kayınca en yatayda kalır', jumped.kenar.en[0] === 2 && jumped.kenar.en[1] === 2 && jumped.kenar.en[2] === 0)
+const enPoint = placeMeasurePoint(held, { hedef: 'en', position: [5, 9, 3] })
+check('en yatay düzlemde', enPoint.kenar.en[0] === 5 && enPoint.kenar.en[1] === 0 && enPoint.kenar.en[2] === 3)
+const boyPoint = placeMeasurePoint(held, { hedef: 'boy', position: [5, 9, 3] })
+check('boy ön düzlemde', boyPoint.kenar.boy[0] === 5 && boyPoint.kenar.boy[1] === 9 && boyPoint.kenar.boy[2] === 0)
+const depthPoint = placeMeasurePoint(held, { hedef: 'derinlik', position: [5, 9, 3] })
+check('derinlik yan düzlemde', depthPoint.kenar.derinlik[0] === 0 && depthPoint.kenar.derinlik[1] === 9 && depthPoint.kenar.derinlik[2] === 3)
 const sameFace = placeMeasurePoint(held, { hedef: 'a', position: [0, 0.4, 0.2], plane: { normal: [1, 0, 0], d: 0 }, y: 0.4, drag: true })
 check('aynı yüzde ikinci nokta durur', sameFace.cift.b && sameFace.cift.b[1] === 1)
 const otherFaceMove = placeMeasurePoint(held, { hedef: 'a', position: [1, 2, 0], plane: { normal: [0, 1, 0], d: 2 }, y: 2, drag: true })
@@ -395,6 +401,19 @@ const center = snapModelCorner(cornerFaces, [0.2, 0.15, 0.1])
 check('merkez en yakın köşe', center && center[0] === 0 && center[1] === 0 && center[2] === 0)
 const edgeEnd = snapEdgeCorner(cornerFaces, [1, 0, 0], [0, 0, 0])
 check('kenar ortası öbür köşeye gider', edgeEnd && edgeEnd[0] === 2 && edgeEnd[1] === 0 && edgeEnd[2] === 0)
+const axisFaces = [
+  [[0, 0, 0], [2, 0, 0], [0, 1, 0]],
+  [[2, 0, 0], [4, 0, 0], [4, 1, 0]],
+  [[2, 0, 0], [4, 1, 0], [0, 1, 0]],
+  [[2, 0, 0], [2, 2, 0], [2.2, 2, 0]],
+  [[2, 0, 0], [2.2, 2, 0], [2.2, 0, 0]],
+  [[0, 0, 0], [0, 3, 0], [0.2, 3, 0]],
+  [[0, 0, 0], [0.2, 3, 0], [0.2, 0, 0]]
+]
+const along = snapAxisCorner(axisFaces, [3.6, 1.2, 0], [0, 0, 0], [2, 0, 0])
+check('en noktası kendi ekseninde ilerler', along && along[0] === 4 && along[1] === 0)
+const offAxis = snapAxisCorner(axisFaces, [0.1, 2.8, 0], [0, 0, 0], [2, 0, 0])
+check('en noktası başka eksene geçmez', offAxis && offAxis[1] === 0)
 const diagonal = snapEdgeCorner(cornerFaces, [2, 3, 0], [0, 0, 0])
 check('çapraz köşe kenar sayılmaz', diagonal && !(diagonal[0] === 2 && diagonal[1] === 3))
 const splitFace = [

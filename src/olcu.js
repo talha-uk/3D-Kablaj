@@ -44,10 +44,6 @@ function vertexKey(v) {
   return v.map((value) => Math.round(value * 1e5) / 1e5).join(',')
 }
 
-function sameVec(a, b) {
-  return Array.isArray(a) && Array.isArray(b) && vertexKey(a) === vertexKey(b)
-}
-
 // Seçili noktayı yeni yerine yazar. Sürüklerken bağlı uç kuralı bozulursa düşer.
 export function placeMeasurePoint(olcu, point) {
   const next = {
@@ -84,14 +80,27 @@ export function placeMeasurePoint(olcu, point) {
   }
   if (point.hedef === 'merkez' || point.hedef === 'en' || point.hedef === 'boy' || point.hedef === 'derinlik') {
     if (point.hedef === 'merkez') {
-      const moved = !sameVec(next.kenar.merkez, point.position)
-      next.kenar = { ...next.kenar, merkez: point.position }
-      if (!point.drag || moved) next.kenar = { ...next.kenar, en: null, boy: null, derinlik: null }
-    } else {
-      next.kenar = { ...next.kenar, [point.hedef]: point.position }
+      const merkez = point.position
+      next.kenar = {
+        merkez,
+        en: next.kenar.en ? measurePlane(next.kenar.en, merkez, 'en') : null,
+        boy: next.kenar.boy ? measurePlane(next.kenar.boy, merkez, 'boy') : null,
+        derinlik: next.kenar.derinlik ? measurePlane(next.kenar.derinlik, merkez, 'derinlik') : null
+      }
+    } else if (next.kenar.merkez) {
+      next.kenar = { ...next.kenar, [point.hedef]: measurePlane(point.position, next.kenar.merkez, point.hedef) }
     }
     return next
   }
+  return next
+}
+
+function measurePlane(position, anchor, hedef) {
+  const next = [position[0], position[1], position[2]]
+  if (!anchor) return next
+  if (hedef === 'en') next[1] = anchor[1]
+  else if (hedef === 'boy') next[2] = anchor[2]
+  else if (hedef === 'derinlik') next[0] = anchor[0]
   return next
 }
 
@@ -406,6 +415,59 @@ export function snapNearestEdge(triangles, point) {
   if (!edges.length) edges = boundaryEdges(triangles)
   if (!edges.length) return null
   return nearest(point, edges.map((edge) => closestOnSegment(point, edge.a, edge.b)))
+}
+
+// En, boy veya derinlik noktası yalnız kendi eksenindeki köşelere gider.
+export function snapAxisCorner(triangles, point, anchor, axisEnd) {
+  if (!anchor || !axisEnd) return null
+  const axis = sub(axisEnd, anchor)
+  const axisLength = lengthOf(axis)
+  if (axisLength < 1e-8) return null
+  const dir = scale(axis, 1 / axisLength)
+  const graph = cornerGraph(triangles)
+  let key = vertexKey(anchor)
+  if (!graph.cornerKeys.has(key)) {
+    const snapped = nearest(anchor, cornerVertices(graph))
+    if (!snapped) return null
+    key = vertexKey(snapped)
+  }
+  const start = graph.adj.get(key)
+  if (!start) return null
+  const corners = []
+  for (const next of start.neighbors) {
+    const align = dot(norm(sub(next.vertex, start.vertex)), dir)
+    if (Math.abs(align) < 0.985) continue
+    const seen = new Set([key])
+    let prev = key
+    let current = next.key
+    let guard = 0
+    while (current && !seen.has(current) && guard < 10000) {
+      guard += 1
+      seen.add(current)
+      const node = graph.adj.get(current)
+      if (!node) break
+      const travel = norm(sub(node.vertex, start.vertex))
+      if (Math.abs(dot(travel, dir)) < 0.985) break
+      if (graph.cornerKeys.has(current)) corners.push(node.vertex)
+      const step = node.neighbors.find((item) => item.key !== prev)
+      if (!step) break
+      if (Math.abs(dot(norm(sub(step.vertex, node.vertex)), dir)) < 0.985) break
+      prev = current
+      current = step.key
+    }
+  }
+  if (!corners.length) return [...axisEnd]
+  const click = dot(sub(point, anchor), dir)
+  let best = null
+  let bestDist = Infinity
+  for (const corner of corners) {
+    const dist = Math.abs(dot(sub(corner, anchor), dir) - click)
+    if (dist < bestDist) {
+      best = corner
+      bestDist = dist
+    }
+  }
+  return best
 }
 
 // Merkez köşeden giden kenarın öbür köşesi. Mesafe kenarın tamamıdır.

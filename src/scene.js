@@ -6,7 +6,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { clone as cloneObject } from 'three/addons/utils/SkeletonUtils.js'
 import { focusFor } from './focus.js'
 import { SCHEMA_TILT, aimAhead, axisAngles, cameraPlacement, flyDelta, groundAxes, panFocus, schemaPose, turnLook } from './fly.js'
-import { exteriorMask, sameFaceTriangles, snapEdgeCorner, snapModelCorner, snapReference } from './olcu.js'
+import { exteriorMask, sameFaceTriangles, snapReference } from './olcu.js'
 import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube.js'
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
@@ -1796,28 +1796,12 @@ export class View {
     if (!align || !hit.object?.geometry) return
     const inverse = align.matrixWorld.clone().invert()
     const point = hit.point.clone().applyMatrix4(inverse)
-    const triangles = this.meshTriangles(hit.object, inverse)
     const raw = [point.x, point.y, point.z]
-    if (hedef === 'merkez') {
-      const snapped = snapModelCorner(triangles, raw)
-      if (!snapped) {
-        if (!drag) this.hooks.status?.('Keskin bir köşe bulunamadı.')
-        return
-      }
-      this.hooks.onMeasurePoint?.({ position: snapped, hedef, drag })
+    if (hedef !== 'merkez' && !this.hooks.olcuAnchor?.()) {
+      if (!drag) this.hooks.status?.('Önce merkez noktasını seç.')
       return
     }
-    const anchor = this.hooks.olcuAnchor?.()
-    if (!anchor) {
-      if (!drag) this.hooks.status?.('Önce merkez köşeyi seç.')
-      return
-    }
-    const snapped = snapEdgeCorner(triangles, raw, anchor)
-    if (!snapped) {
-      if (!drag) this.hooks.status?.('Merkezden giden kenarın öbür köşesine tıkla.')
-      return
-    }
-    this.hooks.onMeasurePoint?.({ position: snapped, hedef, drag })
+    this.hooks.onMeasurePoint?.({ position: raw, hedef, drag })
   }
 
   createModelPort(hit) {
