@@ -163,7 +163,12 @@ export function portGorev(state, componentId, portId) {
   return String(portRecord(state, componentId, portId)?.gorev || '').trim()
 }
 
-export function gorevUyar(a, b) {
+export function portGorevKullanir(type) {
+  return type === 'sma' || type === 'rpsma' || type === 'ntype' || type === 'rf'
+}
+
+export function gorevUyar(a, b, typeA, typeB) {
+  if (typeA !== undefined && typeB !== undefined && (!portGorevKullanir(typeA) || !portGorevKullanir(typeB))) return true
   const left = String(a || '').trim()
   const right = String(b || '').trim()
   if (!left && !right) return true
@@ -185,7 +190,9 @@ export function matchCable(typeA, typeB) {
 }
 
 export function cableLinked(typeA, typeB, cableType, gorevA = '', gorevB = '') {
-  return Boolean(matchCable(typeA || cableType, typeB || cableType)) && gorevUyar(gorevA, gorevB)
+  const left = typeA || cableType
+  const right = typeB || cableType
+  return Boolean(matchCable(left, right)) && gorevUyar(gorevA, gorevB, left, right)
 }
 
 export function cableShown(state, cable) {

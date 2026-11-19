@@ -1,6 +1,6 @@
 import { modelSolid } from './state.js'
 import { decimalText, pairCm } from './olcu.js'
-import { cableCins, cableLinked, componentName, componentPorts, gorevUyar, gorevlerOf, matchCable, measureOf, parcaKaydi, portCins, portGorev, portHasGender, portName, portTypeOf, typeName } from './state.js'
+import { cableCins, cableLinked, componentName, componentPorts, gorevUyar, gorevlerOf, matchCable, measureOf, parcaKaydi, portCins, portGorev, portGorevKullanir, portHasGender, portName, portTypeOf, typeName } from './state.js'
 import { bindTabs, bindToolbar } from './keys.js'
 
 function button(label, onClick) {
@@ -247,7 +247,7 @@ export function mount(hooks) {
           ? () => hooks.onRemoveModelPort?.(component.modelId, port.id)
           : () => hooks.onRemovePort?.(component.id, port.id)
         row.append(name, button('Sil', remove))
-        if (chosenPort?.portId === port.id && chosenPort?.componentId === component.id) row.append(gorevField(state, port))
+        if (chosenPort?.portId === port.id && chosenPort?.componentId === component.id && portGorevKullanir(port.type)) row.append(gorevField(state, port))
         ports.append(row)
       }
       const actions = document.createElement('div')
@@ -280,7 +280,7 @@ export function mount(hooks) {
         ? aType && bType
           ? `${typeName(aType)} ile ${typeName(bType)} bağlanmaz.`
           : typeName(cable.type)
-        : gorevUyar(gorevA, gorevB)
+        : gorevUyar(gorevA, gorevB, aType, bType)
           ? match.name
           : `${gorevA || 'Görevsiz'} ile ${gorevB || 'Görevsiz'} uyuşmaz.`
       form.append(nameLabel, kind)
@@ -381,6 +381,7 @@ export function mount(hooks) {
   }
 
   function portLabel(port) {
+    if (!portGorevKullanir(port.type)) return port.name
     return port.gorev ? `${port.name} · ${port.gorev}` : port.name
   }
 
@@ -391,8 +392,6 @@ export function mount(hooks) {
     const label = document.createElement('label')
     label.htmlFor = id
     label.textContent = 'Görev'
-    const row = document.createElement('div')
-    row.className = 'gorev-satir'
     const select = document.createElement('select')
     select.id = id
     select.name = 'gorev'
@@ -410,9 +409,41 @@ export function mount(hooks) {
     }
     select.value = names.includes(port.gorev) ? port.gorev : ''
     select.addEventListener('change', () => hooks.onPortGorev?.(port.id, select.value))
-    const add = button('Ekle', () => hooks.onAddGorev?.(port.id))
-    row.append(select, add)
-    wrap.append(label, row)
+    label.append(select)
+    const form = document.createElement('form')
+    form.className = 'gorev-yeni'
+    form.addEventListener('submit', (event) => {
+      event.preventDefault()
+      const value = input.value.trim()
+      if (!value) {
+        hint.textContent = 'Görev adı yaz.'
+        input.focus()
+        return
+      }
+      hint.textContent = ''
+      hooks.onAddGorev?.(port.id, value)
+    })
+    const newId = `gorev-yeni-${port.id}`
+    const newLabel = document.createElement('label')
+    newLabel.htmlFor = newId
+    newLabel.textContent = 'Yeni görev'
+    const input = document.createElement('input')
+    input.id = newId
+    input.name = 'yeni'
+    input.type = 'text'
+    input.autocomplete = 'off'
+    input.spellcheck = false
+    input.setAttribute('autocorrect', 'off')
+    input.setAttribute('autocapitalize', 'none')
+    const hint = document.createElement('p')
+    hint.className = 'not'
+    hint.setAttribute('role', 'status')
+    const save = document.createElement('button')
+    save.type = 'submit'
+    save.textContent = 'Kaydet'
+    newLabel.append(input)
+    form.append(newLabel, hint, save)
+    wrap.append(label, form)
     return wrap
   }
 
@@ -457,7 +488,7 @@ export function mount(hooks) {
       name.addEventListener('pointerleave', () => hooks.onHover?.(null))
       row.append(name, button('Sil', () => hooks.onRemoveModelPort?.(model.id, port.id)))
       if (chosenPort?.portId === port.id) {
-        row.append(gorevField(state, port))
+        if (portGorevKullanir(port.type)) row.append(gorevField(state, port))
         if (portHasGender(port.type)) row.append(genderField(port))
       }
       ports.append(row)
@@ -624,12 +655,14 @@ export function mount(hooks) {
           portTypeOf(state, cable.a.componentId, cable.a.portId),
           portTypeOf(state, cable.b.componentId, cable.b.portId)
         )
-        const bad = portTypeOf(state, cable.a.componentId, cable.a.portId)
-          && portTypeOf(state, cable.b.componentId, cable.b.portId)
-          && (!pair || !gorevUyar(
-            portGorev(state, cable.a.componentId, cable.a.portId),
-            portGorev(state, cable.b.componentId, cable.b.portId)
-          ))
+        const typeA = portTypeOf(state, cable.a.componentId, cable.a.portId)
+        const typeB = portTypeOf(state, cable.b.componentId, cable.b.portId)
+        const bad = typeA && typeB && (!pair || !gorevUyar(
+          portGorev(state, cable.a.componentId, cable.a.portId),
+          portGorev(state, cable.b.componentId, cable.b.portId),
+          typeA,
+          typeB
+        ))
         const cm = hooks.cableLength?.(cable)
         children.push(treeItem({
           id: `cable:${component.id}:${cable.id}`,

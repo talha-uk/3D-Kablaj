@@ -100,12 +100,12 @@ const ui = mount({
   onRemoveModelPort: (modelId, portId) => commit(removeModelPort(state, modelId, portId), 'Port silindi.'),
   onPortCins: (portId, cins) => commit(setPortCins(state, portId, cins), cins === 'erkek' ? 'Port erkek.' : 'Port dişi.'),
   onPortGorev: (portId, gorev) => commit(setPortGorev(state, portId, gorev), gorev ? 'Port görevi yazıldı.' : 'Port görevi silindi.'),
-  onAddGorev: async (portId) => {
-    const name = await ui.askName('Görev', '')
-    if (!name) return
-    let next = addGorev(state, name)
-    if (portId) next = setPortGorev(next, portId, name)
-    commit(next, `${name} görevlere eklendi.`)
+  onAddGorev: (portId, name) => {
+    const trimmed = String(name || '').trim()
+    if (!trimmed) return
+    let next = addGorev(state, trimmed)
+    if (portId) next = setPortGorev(next, portId, trimmed)
+    commit(next, `${trimmed} görevlere kaydedildi.`)
   },
   onRenameCable: (id, name) => commit(updateCable(state, id, { name })),
   onCableType: (id, type) => commit(updateCable(state, id, { type })),
@@ -294,7 +294,7 @@ function cableMatch(ends) {
   }
   const left = portGorev(state, ends.a.componentId, ends.a.portId)
   const right = portGorev(state, ends.b.componentId, ends.b.portId)
-  if (!gorevUyar(left, right)) {
+  if (!gorevUyar(left, right, a, b)) {
     ui.status(left && right ? `${left} ile ${right} uyuşmaz.` : 'Görevi olan uca görevsiz kablo takılmaz.')
     return null
   }

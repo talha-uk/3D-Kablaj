@@ -6,7 +6,7 @@ import { headingFromQuaternion, portOrientation, portRoll } from '../src/yaw.js'
 import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
 import { cableRadius, CABLE_OD_MM, plugReach, routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
-import { addCable, addComponent, addGorev, addModel, addModelPort, addParca, addPort, cableCins, cableLinked, cableShown, coaxFace, duplicateComponent, emptyState, gorevUyar, gorevlerOf, matchCable, modelSolid, parcaKaydi, portHasGender, removeParca, setComponentDeger, setModelParca, setPortGorev, uid } from '../src/state.js'
+import { addCable, addComponent, addGorev, addModel, addModelPort, addParca, addPort, cableCins, cableLinked, cableShown, coaxFace, duplicateComponent, emptyState, gorevUyar, gorevlerOf, matchCable, modelSolid, parcaKaydi, portGorevKullanir, portHasGender, removeParca, setComponentDeger, setModelParca, setPortGorev, uid } from '../src/state.js'
 import { cableLengthCm, decimalText, exteriorMask, modelUnit, nearestMeasureCorner, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference, uniqueMeasureCorner } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
 import { orientBand, signalBand, signalColor, signalLap, signalPackets, signalSample } from '../src/sinyal.js'
@@ -653,6 +653,11 @@ check('başlangıç görevleri durur', gorevlerOf(emptyState()).join() === 'GPS,
 const gorevListe = addGorev(emptyState(), 'LNA')
 check('yeni görev listeye girer', gorevListe.gorevler.includes('LNA') && gorevListe.gorevler.includes('Rx'))
 check('görev tekrarı eklenmez', addGorev(gorevListe, 'LNA').gorevler.filter((item) => item === 'LNA').length === 1)
+check('sma görev ister', portGorevKullanir('sma') && portGorevKullanir('rpsma') && portGorevKullanir('ntype'))
+check('type-c görev istemez', portGorevKullanir('usbc') === false)
+check('usb ethernet ve güç görev istemez', !portGorevKullanir('usb2') && !portGorevKullanir('usb3') && !portGorevKullanir('ag') && !portGorevKullanir('guc'))
+check('type-c uçları görevden bağlanır', gorevUyar('Rx', 'Tx', 'usbc', 'usbc'))
+check('sma rx tx uyuşmaz', gorevUyar('Rx', 'Tx', 'sma', 'sma') === false)
 
 if (failed) {
   console.error(failed, 'hata')

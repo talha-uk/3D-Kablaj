@@ -386,8 +386,9 @@ h2 { font-size: 0.85rem; margin-block-end: 0.4rem; }
   color: color-mix(in srgb, var(--muted) 48%, var(--stage));
 }
 
-.gorev-satir { display: flex; gap: 0.3rem; align-items: center; }
-.gorev-satir select { flex: 1; min-inline-size: 0; }
+.gorev-yeni { display: flex; flex-direction: column; gap: 0.3rem; margin-block-start: 0.35rem; }
+.gorev-yeni .not:empty { display: none; }
+.gorev-yeni .not { margin: 0; }
 
 #bakis {
   position: absolute;
