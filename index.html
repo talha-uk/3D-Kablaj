@@ -31,7 +31,10 @@
       <aside class="yan hiyerarsi" id="kutuphane">
         <header class="hiyerarsi-baslik">
           <h2>Hiyerarşi</h2>
-          <button type="button" id="yukle">Model yükle</button>
+          <span class="hiyerarsi-eylem">
+            <button type="button" id="parca-ekle" aria-label="Parça ekle">+</button>
+            <button type="button" id="yukle">Model yükle</button>
+          </span>
           <input id="dosya" type="file" accept=".glb,.sldprt,.SLDPRT,model/gltf-binary" multiple hidden>
         </header>
         <ul id="hiyerarsi" role="tree" aria-label="Hiyerarşi"></ul>
@@ -79,6 +82,27 @@
         <button value="usbc">USB Type-C</button>
         <button value="ag">Ethernet</button>
         <button value="guc">Güç</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="parca" closedby="any" aria-labelledby="parca-baslik">
+    <form method="dialog" aria-labelledby="parca-baslik">
+      <h2 id="parca-baslik">Parça</h2>
+      <p class="not">Ad ve alanlar kaydolur. Bu parçayı her eklediğinde aynı alanlar gelir.</p>
+      <label for="parca-ad">Ad
+        <input id="parca-ad" name="ad" autocomplete="off" required autofocus>
+      </label>
+      <fieldset>
+        <legend>Alanlar</legend>
+        <p class="not">Her satıra bir ölçü yaz. Örneğin dBm, MHz, IP.</p>
+        <div id="parca-alanlar"></div>
+        <button type="button" id="parca-alan-ekle">Alan ekle</button>
+      </fieldset>
+      <p id="parca-hata" role="status"></p>
+      <div class="satir">
+        <button type="submit" value="cancel" formnovalidate>Vazgeç</button>
+        <button type="submit" value="ok">Kaydet</button>
       </div>
     </form>
   </dialog>

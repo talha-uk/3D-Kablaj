@@ -9,6 +9,7 @@ import {
   modelSolid,
   portTypeOf,
   typeName,
+  addParca,
   addComponent,
   addModel,
   addModelPort,
@@ -16,11 +17,15 @@ import {
   duplicateComponent,
   movePort,
   emptyState,
+  removeParca,
   removeCable,
   removeComponent,
   removeModel,
   removeModelPort,
   removePort,
+  setComponentDeger,
+  setComponentParca,
+  setModelParca,
   setPortCins,
   uid,
   updateCable,
@@ -99,13 +104,39 @@ const ui = mount({
     uiState = { ...uiState, selection: null }
     commit(removeCable(state, id), 'Kablo silindi.')
   },
+  onAddParca: async () => {
+    const parca = await ui.askParca()
+    if (!parca) return
+    commit(addParca(state, parca), `${parca.ad} kütüphaneye kaydedildi.`)
+  },
+  onRemoveParca: async (id) => {
+    const parca = (state.kutuphane || []).find((item) => item.id === id)
+    if (!parca) return
+    const ok = await ui.confirm('Parça silinsin mi?', `${parca.ad} kütüphaneden kalkar.`, 'Sil')
+    if (!ok) return
+    commit(removeParca(state, id), `${parca.ad} silindi.`)
+  },
+  onUseParca: (id) => {
+    if (uiState.selection?.kind === 'component') {
+      commit(setComponentParca(state, uiState.selection.id, id), 'Parça alanları açıldı.')
+      return
+    }
+    if (uiState.mode === 'incele' && uiState.inspectId) {
+      commit(setModelParca(state, uiState.inspectId, id), 'Model bu parçayı kullanır.')
+      return
+    }
+    ui.status('Modeli incelemede seç veya sahnedeki parçaya tıkla.')
+  },
+  onModelParca: (modelId, parcaId) => commit(setModelParca(state, modelId, parcaId), 'Modelin parçası kaydedildi.'),
+  onComponentParca: (id, parcaId) => commit(setComponentParca(state, id, parcaId), 'Parça alanları açıldı.'),
+  onComponentDeger: (id, alan, value) => commit(setComponentDeger(state, id, alan, value)),
   onNew: async () => {
     if (state.components.length === 0 && state.cables.length === 0) return
-    const ok = await ui.confirm('Yeni düzenek?', 'Parçalar ve kablolar silinir. Yüklenen modeller kalır.', 'Sıfırla')
+    const ok = await ui.confirm('Yeni düzenek?', 'Parçalar ve kablolar silinir. Modeller ve parça kütüphanesi kalır.', 'Sıfırla')
     if (!ok) return
     uiState = { ...uiState, selection: null, mode: 'yerlesim' }
     view.setMode('yerlesim')
-    commit({ ...emptyState(), models: state.models }, 'Yeni düzenek.')
+    commit({ ...emptyState(), models: state.models, kutuphane: state.kutuphane || [] }, 'Yeni düzenek.')
   },
   onDownload: () => downloadProject(state),
   onOlcu: (modelId, olcu) => {

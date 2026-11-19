@@ -1,6 +1,6 @@
 import { modelSolid } from './state.js'
 import { decimalText, pairCm } from './olcu.js'
-import { cableCins, cableLinked, componentName, componentPorts, matchCable, measureOf, portCins, portHasGender, portName, portTypeOf, typeName } from './state.js'
+import { cableCins, cableLinked, componentName, componentPorts, matchCable, measureOf, parcaKaydi, portCins, portHasGender, portName, portTypeOf, typeName } from './state.js'
 import { bindTabs, bindToolbar } from './keys.js'
 
 function button(label, onClick) {
@@ -40,6 +40,29 @@ export function mount(hooks) {
   const ekran = document.getElementById('ekran')
 
   document.getElementById('yukle').addEventListener('click', () => dosya.click())
+  document.getElementById('parca-ekle').addEventListener('click', () => hooks.onAddParca?.())
+  const parcaDialog = document.getElementById('parca')
+  if (!('closedBy' in HTMLDialogElement.prototype)) {
+    parcaDialog.addEventListener('click', (event) => {
+      if (event.target !== parcaDialog) return
+      const rect = parcaDialog.getBoundingClientRect()
+      const inside = rect.top <= event.clientY && event.clientY <= rect.bottom
+        && rect.left <= event.clientX && event.clientX <= rect.right
+      if (!inside) parcaDialog.close()
+    })
+  }
+  parcaDialog.querySelector('form').addEventListener('submit', (event) => {
+    if (event.submitter?.value !== 'ok') return
+    const filled = [...parcaDialog.querySelectorAll('input[name="alan"]')].some((input) => input.value.trim())
+    if (filled) {
+      document.getElementById('parca-hata').textContent = ''
+      return
+    }
+    event.preventDefault()
+    const hata = document.getElementById('parca-hata')
+    hata.textContent = 'En az bir alan yaz. Örneğin dBm veya MHz.'
+    parcaDialog.querySelector('input[name="alan"]')?.focus()
+  })
   dosya.addEventListener('change', () => {
     hooks.onUpload?.(dosya.files)
     dosya.value = ''
@@ -129,6 +152,56 @@ export function mount(hooks) {
     if (!typing) fillInspector(state, ui)
   }
 
+  function parcaFields(state, parcaId, { values = null, onPick, onValue } = {}) {
+    const form = document.createElement('form')
+    form.className = 'alan-form'
+    form.addEventListener('submit', (event) => event.preventDefault())
+    const fieldset = document.createElement('fieldset')
+    const legend = document.createElement('legend')
+    legend.textContent = 'Parça'
+    const selectLabel = document.createElement('label')
+    selectLabel.textContent = 'Kayıt'
+    const select = document.createElement('select')
+    select.name = 'parca'
+    const empty = document.createElement('option')
+    empty.value = ''
+    empty.textContent = 'Yok'
+    select.append(empty)
+    for (const item of state.kutuphane || []) {
+      const option = document.createElement('option')
+      option.value = item.id
+      option.textContent = item.ad
+      select.append(option)
+    }
+    select.value = (state.kutuphane || []).some((item) => item.id === parcaId) ? parcaId : ''
+    select.addEventListener('change', () => onPick?.(select.value))
+    selectLabel.append(select)
+    fieldset.append(legend, selectLabel)
+    const parca = (state.kutuphane || []).find((item) => item.id === select.value)
+    if (parca && values) {
+      parca.alanlar.forEach((alan, index) => {
+        const id = `deger-${index}-${alan.replace(/\s+/g, '-')}`
+        const label = document.createElement('label')
+        label.htmlFor = id
+        label.textContent = alan
+        const input = document.createElement('input')
+        input.id = id
+        input.name = alan
+        input.type = 'text'
+        input.autocomplete = 'off'
+        input.spellcheck = false
+        input.setAttribute('autocorrect', 'off')
+        input.setAttribute('autocapitalize', 'none')
+        input.value = values[alan] || ''
+        input.addEventListener('change', () => onValue?.(alan, input.value.trim()))
+        label.append(input)
+        fieldset.append(label)
+      })
+    }
+    form.append(fieldset)
+    return form
+  }
+
   function fillInspector(state, ui) {
     secili.replaceChildren()
     const chosenPort = ui.selection?.kind === 'port' ? ui.selection : null
@@ -151,6 +224,11 @@ export function mount(hooks) {
       name.addEventListener('change', () => hooks.onRenameComponent?.(component.id, name.value.trim() || component.name))
       nameLabel.append(name)
       form.append(nameLabel)
+      form.append(parcaFields(state, component.parcaId, {
+        values: component.degerler || {},
+        onPick: (parcaId) => hooks.onComponentParca?.(component.id, parcaId),
+        onValue: (alan, value) => hooks.onComponentDeger?.(component.id, alan, value)
+      }))
       const model = state.models.find((item) => item.id === component.modelId)
       const modelIds = new Set((model?.ports || []).map((port) => port.id))
       const ports = document.createElement('ul')
@@ -221,6 +299,17 @@ export function mount(hooks) {
     name.className = 'secili-ad'
     name.textContent = model.name
     secili.append(name)
+    const parca = (state.kutuphane || []).find((item) => item.id === model.parcaId)
+    const picked = parcaFields(state, model.parcaId, {
+      onPick: (parcaId) => hooks.onModelParca?.(model.id, parcaId)
+    })
+    const hint = document.createElement('p')
+    hint.className = 'not'
+    hint.textContent = parca
+      ? `Sahneye her koyuşta ${parca.alanlar.join(', ')} sorulur.`
+      : 'Kütüphaneden bir parça seç. Sahneye her koyuşta o alanlar gelir.'
+    picked.append(hint)
+    secili.append(picked)
     if (ui.tool === 'port') secili.append(portList(model, chosenPort))
     if (ui.tool === 'olcu') secili.append(measurePanel(state, ui, model))
   }
@@ -514,7 +603,17 @@ export function mount(hooks) {
       })
     })
     if (!sceneRows.length) sceneRows.push(noteItem('Modeli sahneye sürükle.', 1))
+    const libraryRows = (state.kutuphane || []).map((parca) => treeItem({
+      id: `kutup:${parca.id}`,
+      label: `${parca.ad} · ${parca.alanlar.join(', ')}`,
+      depth: 1,
+      kind: 'kutup',
+      onActivate: () => hooks.onUseParca?.(parca.id),
+      extra: removeButton(() => hooks.onRemoveParca?.(parca.id))
+    }))
+    if (!libraryRows.length) libraryRows.push(noteItem('+ ile ad ve alan kaydet. Örneğin dBm, MHz.', 1))
     hiyerarsi.append(
+      treeItem({ id: 'grup:kutuphane', label: 'Parça kütüphanesi', depth: 0, kind: 'grup', children: libraryRows }),
       treeItem({ id: 'grup:modeller', label: 'Modeller', depth: 0, kind: 'grup', children: modelRows }),
       treeItem({ id: 'grup:sahne', label: 'Sahne', depth: 0, kind: 'grup', children: sceneRows })
     )
@@ -609,6 +708,50 @@ export function mount(hooks) {
       return ask(document.getElementById('port-tur'), () => {}).then((value) => (
         value && value !== 'cancel' ? value : null
       ))
+    },
+    askParca() {
+      const dialog = document.getElementById('parca')
+      const list = document.getElementById('parca-alanlar')
+      const addRow = () => {
+        const row = document.createElement('div')
+        row.className = 'parca-alan'
+        const id = `alan-${crypto.randomUUID()}`
+        const label = document.createElement('label')
+        label.htmlFor = id
+        label.textContent = 'Alan'
+        const input = document.createElement('input')
+        input.id = id
+        input.name = 'alan'
+        input.type = 'text'
+        input.autocomplete = 'off'
+        input.spellcheck = false
+        input.setAttribute('autocorrect', 'off')
+        input.setAttribute('autocapitalize', 'none')
+        input.enterKeyHint = 'next'
+        const remove = button('Sil', () => {
+          if (list.children.length === 1) {
+            input.value = ''
+            input.focus()
+            return
+          }
+          row.remove()
+        })
+        label.append(input)
+        row.append(label, remove)
+        list.append(row)
+        return input
+      }
+      document.getElementById('parca-alan-ekle').onclick = () => addRow().focus()
+      return ask(dialog, () => {
+        document.getElementById('parca-hata').textContent = ''
+        document.getElementById('parca-ad').value = ''
+        list.replaceChildren()
+        addRow()
+      }).then((value) => {
+        if (value !== 'ok') return null
+        const alanlar = [...list.querySelectorAll('input[name="alan"]')].map((input) => input.value)
+        return parcaKaydi(document.getElementById('parca-ad').value, alanlar)
+      })
     },
     askName(title, value) {
       const dialog = document.getElementById('ad')

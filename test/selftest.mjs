@@ -6,7 +6,7 @@ import { headingFromQuaternion, portOrientation, portRoll } from '../src/yaw.js'
 import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
 import { cableRadius, CABLE_OD_MM, plugReach, routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
-import { addCable, addComponent, addModel, addPort, cableCins, cableLinked, cableShown, coaxFace, emptyState, matchCable, modelSolid, portHasGender, uid } from '../src/state.js'
+import { addCable, addComponent, addModel, addParca, addPort, cableCins, cableLinked, cableShown, coaxFace, duplicateComponent, emptyState, matchCable, modelSolid, parcaKaydi, portHasGender, removeParca, setComponentDeger, setModelParca, uid } from '../src/state.js'
 import { cableLengthCm, decimalText, exteriorMask, modelUnit, nearestMeasureCorner, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference, uniqueMeasureCorner } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
 import { orientBand, signalBand, signalColor, signalLap, signalPackets, signalSample } from '../src/sinyal.js'
@@ -623,6 +623,21 @@ for (const dir of [[1, 0, 0], [0, 1, 0], [0, 0, -1]]) {
   hole.set(0, 0, 1).applyQuaternion(quat)
   check(`halka deliği ${dir.join(',')} boyunca`, hole.dot(tangent) > 0.99)
 }
+const kayit = parcaKaydi('Anten', ['dBm', ' MHz ', 'dBm', ''])
+check('parça adı ve alanları kalır', kayit?.ad === 'Anten' && kayit.alanlar.join() === 'dBm,MHz')
+check('adsız parça kaydolmaz', parcaKaydi('  ', ['dBm']) === null)
+check('alansız parça kaydolmaz', parcaKaydi('Anten', [' ', '']) === null)
+let lib = addParca(addModel(emptyState(), { id: 'm', name: 'Kutu', file: 'k.glb' }), kayit)
+lib = setModelParca(lib, 'm', kayit.id)
+lib = addComponent(lib, 'm', 'A')
+check('yeni parça kayıtlı alanlarla gelir', lib.components[0].parcaId === kayit.id && !lib.components[0].degerler.dBm)
+lib = setComponentDeger(lib, lib.components[0].id, 'dBm', '12')
+lib = setComponentDeger(lib, lib.components[0].id, 'MHz', '2400')
+check('alan değeri yazılır', lib.components[0].degerler.dBm === '12' && lib.components[0].degerler.MHz === '2400')
+const copied = duplicateComponent(lib, lib.components[0].id)
+check('kopya alanları boş gelir', copied.components.at(-1).parcaId === kayit.id && copied.components.at(-1).degerler.dBm == null)
+lib = removeParca(lib, kayit.id)
+check('silinen parça kütüphaneden kalkar', lib.kutuphane.length === 0 && lib.models[0].parcaId == null && lib.components[0].parcaId == null)
 
 if (failed) {
   console.error(failed, 'hata')

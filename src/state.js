@@ -23,8 +23,63 @@ export function emptyState() {
     models: [],
     components: [],
     cables: [],
-    hiddenTypes: []
+    hiddenTypes: [],
+    kutuphane: []
   }
+}
+
+export function parcaKaydi(ad, alanlar) {
+  const name = String(ad || '').trim()
+  const fields = []
+  const seen = new Set()
+  for (const raw of alanlar || []) {
+    const alan = String(raw || '').trim()
+    if (!alan || seen.has(alan)) continue
+    seen.add(alan)
+    fields.push(alan)
+  }
+  if (!name || !fields.length) return null
+  return { id: uid(), ad: name, alanlar: fields }
+}
+
+export function addParca(state, parca) {
+  return { ...state, kutuphane: [...(state.kutuphane || []), parca] }
+}
+
+export function removeParca(state, id) {
+  const clear = (item) => (item.parcaId === id ? { ...item, parcaId: null, degerler: {} } : item)
+  return {
+    ...state,
+    kutuphane: (state.kutuphane || []).filter((item) => item.id !== id),
+    models: state.models.map((item) => (item.parcaId === id ? { ...item, parcaId: null } : item)),
+    components: state.components.map(clear)
+  }
+}
+
+export function setModelParca(state, modelId, parcaId) {
+  const parca = (state.kutuphane || []).find((item) => item.id === parcaId)
+  return {
+    ...state,
+    models: state.models.map((item) => (
+      item.id === modelId ? { ...item, parcaId: parca ? parca.id : null } : item
+    ))
+  }
+}
+
+export function setComponentParca(state, id, parcaId) {
+  const parca = (state.kutuphane || []).find((item) => item.id === parcaId)
+  const previous = state.components.find((item) => item.id === id)?.degerler || {}
+  const degerler = {}
+  for (const alan of parca?.alanlar || []) degerler[alan] = previous[alan] || ''
+  return updateComponent(state, id, { parcaId: parca ? parca.id : null, degerler })
+}
+
+export function setComponentDeger(state, id, alan, value) {
+  const component = state.components.find((item) => item.id === id)
+  if (!component) return state
+  return updateComponent(state, id, {
+    degerler: { ...(component.degerler || {}), [alan]: value }
+  })
 }
 
 export const PORT_TYPES = [
@@ -229,7 +284,9 @@ export function addComponent(state, modelId, name) {
     yaw: 0,
     scale: 1,
     schema: { x: spot.x, z: spot.z, yaw: 0 },
-    ports: []
+    ports: [],
+    parcaId: state.models.find((item) => item.id === modelId)?.parcaId || null,
+    degerler: {}
   }
   return { ...state, components: [...state.components, component] }
 }
@@ -248,6 +305,7 @@ export function duplicateComponent(state, id) {
     position: [...port.position],
     normal: [...port.normal]
   }))
+  copy.degerler = {}
   return { ...state, components: [...state.components, copy] }
 }
 
