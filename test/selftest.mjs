@@ -6,7 +6,7 @@ import { headingFromQuaternion, portOrientation, portRoll } from '../src/yaw.js'
 import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
 import { cableRadius, CABLE_OD_MM, plugReach, routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
-import { addCable, addComponent, addModel, addModelPort, addParca, addPort, cableCins, cableLinked, cableShown, coaxFace, duplicateComponent, emptyState, matchCable, modelSolid, parcaKaydi, portHasGender, removeParca, setComponentDeger, setModelParca, setPortGorev, uid } from '../src/state.js'
+import { addCable, addComponent, addGorev, addModel, addModelPort, addParca, addPort, cableCins, cableLinked, cableShown, coaxFace, duplicateComponent, emptyState, gorevUyar, gorevlerOf, matchCable, modelSolid, parcaKaydi, portHasGender, removeParca, setComponentDeger, setModelParca, setPortGorev, uid } from '../src/state.js'
 import { cableLengthCm, decimalText, exteriorMask, modelUnit, nearestMeasureCorner, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference, uniqueMeasureCorner } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
 import { orientBand, signalBand, signalColor, signalLap, signalPackets, signalSample } from '../src/sinyal.js'
@@ -643,6 +643,16 @@ gorevli = setPortGorev(gorevli, 'p', ' GPS ')
 check('port görevi yazılır', gorevli.models[0].ports[0].gorev === 'GPS')
 gorevli = setPortGorev(gorevli, 'p', '  ')
 check('boş görev silinir', gorevli.models[0].ports[0].gorev === '')
+check('aynı görev uyar', gorevUyar('GPS', 'GPS'))
+check('farklı görev uyuşmaz', gorevUyar('Rx', 'Tx') === false)
+check('görevsiz uçlar serbest', gorevUyar('', ''))
+check('tek görev uyuşmaz', gorevUyar('GPS', '') === false)
+check('görev uyuşmazsa kablo akmaz', cableLinked('sma', 'sma', 'sma', 'GPS', 'Rx') === false)
+check('aynı görev akar', cableLinked('sma', 'sma', 'sma', 'GPS', 'GPS'))
+check('başlangıç görevleri durur', gorevlerOf(emptyState()).join() === 'GPS,2.4/5.8 GHz,Rx,Tx')
+const gorevListe = addGorev(emptyState(), 'LNA')
+check('yeni görev listeye girer', gorevListe.gorevler.includes('LNA') && gorevListe.gorevler.includes('Rx'))
+check('görev tekrarı eklenmez', addGorev(gorevListe, 'LNA').gorevler.filter((item) => item === 'LNA').length === 1)
 
 if (failed) {
   console.error(failed, 'hata')

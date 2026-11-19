@@ -4,9 +4,12 @@ import { mount } from './ui.js'
 import { cableLengthCm, placeMeasurePoint, scaleFromEdges, scaleFromPair } from './olcu.js'
 import {
   addCable,
+  addGorev,
+  gorevUyar,
   matchCable,
   measureOf,
   modelSolid,
+  portGorev,
   portTypeOf,
   typeName,
   addParca,
@@ -98,6 +101,13 @@ const ui = mount({
   onRemoveModelPort: (modelId, portId) => commit(removeModelPort(state, modelId, portId), 'Port silindi.'),
   onPortCins: (portId, cins) => commit(setPortCins(state, portId, cins), cins === 'erkek' ? 'Port erkek.' : 'Port dişi.'),
   onPortGorev: (portId, gorev) => commit(setPortGorev(state, portId, gorev), gorev ? 'Port görevi yazıldı.' : 'Port görevi silindi.'),
+  onAddGorev: async (portId) => {
+    const name = await ui.askName('Görev', '')
+    if (!name) return
+    let next = addGorev(state, name)
+    if (portId) next = setPortGorev(next, portId, name)
+    commit(next, `${name} görevlere eklendi.`)
+  },
   onRenameCable: (id, name) => commit(updateCable(state, id, { name })),
   onCableType: (id, type) => commit(updateCable(state, id, { type })),
   onDeleteCable: async (id) => {
@@ -138,7 +148,12 @@ const ui = mount({
     if (!ok) return
     uiState = { ...uiState, selection: null, mode: 'yerlesim' }
     view.setMode('yerlesim')
-    commit({ ...emptyState(), models: state.models, kutuphane: state.kutuphane || [] }, 'Yeni düzenek.')
+    commit({
+      ...emptyState(),
+      models: state.models,
+      kutuphane: state.kutuphane || [],
+      gorevler: state.gorevler
+    }, 'Yeni düzenek.')
   },
   onDownload: () => downloadProject(state),
   onOlcu: (modelId, olcu) => {
@@ -246,20 +261,9 @@ const view = new View(document.getElementById('sahne'), {
     if (measureUndo) ui.status('Ölçü güncellendi.')
     measureUndo = false
   },
-  cableOk: (ends) => {
-    const a = portTypeOf(state, ends.a.componentId, ends.a.portId)
-    const b = portTypeOf(state, ends.b.componentId, ends.b.portId)
-    if (matchCable(a, b)) return true
-    const left = typeName(a)
-    const right = typeName(b)
-    ui.status(a && b ? `${left} ile ${right} bağlanmaz.` : 'Uç türü belli değil.')
-    return false
-  },
+  cableOk: (ends) => Boolean(cableMatch(ends)),
   onCable: (ends) => {
-    const match = matchCable(
-      portTypeOf(state, ends.a.componentId, ends.a.portId),
-      portTypeOf(state, ends.b.componentId, ends.b.portId)
-    )
+    const match = cableMatch(ends)
     if (!match) return
     commit(addCable(state, ends.a, ends.b, match.type, match.name), 'Kablo bağlandı.')
   },
@@ -292,15 +296,22 @@ const view = new View(document.getElementById('sahne'), {
   }
 })
 
-const akisButton = document.getElementById('akis')
-const paintFlow = () => {
-  akisButton.textContent = view.flowing ? 'Akışı durdur' : 'Akışı sürdür'
+function cableMatch(ends) {
+  const a = portTypeOf(state, ends.a.componentId, ends.a.portId)
+  const b = portTypeOf(state, ends.b.componentId, ends.b.portId)
+  const match = matchCable(a, b)
+  if (!match) {
+    ui.status(a && b ? `${typeName(a)} ile ${typeName(b)} bağlanmaz.` : 'Uç türü belli değil.')
+    return null
+  }
+  const left = portGorev(state, ends.a.componentId, ends.a.portId)
+  const right = portGorev(state, ends.b.componentId, ends.b.portId)
+  if (!gorevUyar(left, right)) {
+    ui.status(left && right ? `${left} ile ${right} uyuşmaz.` : 'Görevi olan uca görevsiz kablo takılmaz.')
+    return null
+  }
+  return match
 }
-akisButton.addEventListener('click', () => {
-  view.setFlowing(!view.flowing)
-  paintFlow()
-})
-paintFlow()
 
 function inspectFallback() {
   return state.components.find((item) => item.id === uiState.selection?.id)?.modelId

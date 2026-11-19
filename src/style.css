@@ -126,11 +126,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
     border-block-end-color: Highlight;
   }
   #hiz { color: GrayText; }
-  #akis {
-    color: ButtonText;
-    background: ButtonFace;
-    border-color: ButtonText;
-  }
 }
 
 h1, h2, p { margin: 0; }
@@ -387,32 +382,19 @@ h2 { font-size: 0.85rem; margin-block-end: 0.4rem; }
   touch-action: none;
 }
 
-#koseler {
-  position: absolute;
-  inset: 0.45rem 0.7rem auto auto;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-#akis {
-  min-inline-size: 0;
-  min-block-size: 1.8rem;
-  padding: 0.12rem 0.55rem;
-  font-size: 0.75rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--stage) 78%, var(--panel));
-  color: color-mix(in srgb, var(--muted) 18%, var(--text));
-}
-
 #hiz {
+  position: absolute;
+  inset: 0.55rem 0.75rem auto auto;
+  z-index: 1;
   margin: 0;
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
   color: color-mix(in srgb, var(--muted) 48%, var(--stage));
 }
+
+.gorev-satir { display: flex; gap: 0.3rem; align-items: center; }
+.gorev-satir select { flex: 1; min-inline-size: 0; }
 
 #bakis {
   position: absolute;

@@ -658,8 +658,6 @@ export class View {
     this.plugShift = new Map()
     this.signals = []
     this.time = 0
-    this.flowing = typeof matchMedia !== 'function' || !matchMedia('(prefers-reduced-motion: reduce)').matches
-    this.flowDrawn = false
     this.bend = null
     this.down = null
     this.pan = null
@@ -908,10 +906,9 @@ export class View {
   tick() {
     requestAnimationFrame(this.tick)
     const dt = Math.min(this.clock.getDelta(), 0.05)
-    if (this.flowing) this.time += dt
-    if (this.signals.length && (this.flowing || !this.flowDrawn)) {
-      this.flowSignals(this.flowing ? dt : 0)
-      this.flowDrawn = true
+    this.time += dt
+    if (this.signals.length) {
+      this.flowSignals(dt)
       this.live = true
     }
     const speed = this.flyKeys.size ? this.applyFly(dt) : 0
@@ -1339,17 +1336,14 @@ export class View {
     return Math.min(Math.max(bead, screen), bead * 1.8)
   }
 
-  setFlowing(on) {
-    this.flowing = Boolean(on)
-    this.live = true
-  }
-
   addFlow(curve, cable, radius) {
     const length = curve.getLength()
     if (!(length > 0.05)) return
     const typeA = portTypeOf(this.state, cable.a.componentId, cable.a.portId)
     const typeB = portTypeOf(this.state, cable.b.componentId, cable.b.portId)
-    const ok = cableLinked(typeA, typeB, cable.type)
+    const gorevA = portRecord(this.state, cable.a.componentId, cable.a.portId)?.gorev
+    const gorevB = portRecord(this.state, cable.b.componentId, cable.b.portId)?.gorev
+    const ok = cableLinked(typeA, typeB, cable.type, gorevA, gorevB)
     const color = signalColor(cable.type, ok)
     const bandSize = signalBand(radius)
     for (const packet of signalPackets(cable.type, length, ok)) {
@@ -1518,7 +1512,6 @@ export class View {
     this.cableMeshes.clear()
     this.plugGroups.clear()
     this.signals = []
-    this.flowDrawn = false
     for (const child of [...this.bendRoot.children]) {
       if (child.geometry?.userData.owned) child.geometry.dispose()
       if (child.material) child.material.dispose()

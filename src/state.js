@@ -143,6 +143,33 @@ export function portTypeOf(state, componentId, portId) {
   return portRecord(state, componentId, portId)?.type || ''
 }
 
+export const GOREV_BASLANGIC = ['GPS', '2.4/5.8 GHz', 'Rx', 'Tx']
+
+export function gorevlerOf(state) {
+  const list = state?.gorevler
+  if (!Array.isArray(list) || !list.length) return [...GOREV_BASLANGIC]
+  return list
+}
+
+export function addGorev(state, ad) {
+  const name = String(ad || '').trim()
+  if (!name) return state
+  const list = gorevlerOf(state)
+  if (list.includes(name)) return { ...state, gorevler: list }
+  return { ...state, gorevler: [...list, name] }
+}
+
+export function portGorev(state, componentId, portId) {
+  return String(portRecord(state, componentId, portId)?.gorev || '').trim()
+}
+
+export function gorevUyar(a, b) {
+  const left = String(a || '').trim()
+  const right = String(b || '').trim()
+  if (!left && !right) return true
+  return left !== '' && left === right
+}
+
 const MIXED_CABLES = {
   'ntype+sma': { type: 'rf', name: 'RF SMA–N' },
   'ag+usbc': { type: 'ag', name: 'Ethernet–Type-C' },
@@ -157,8 +184,8 @@ export function matchCable(typeA, typeB) {
   return MIXED_CABLES[[typeA, typeB].sort().join('+')] || null
 }
 
-export function cableLinked(typeA, typeB, cableType) {
-  return Boolean(matchCable(typeA || cableType, typeB || cableType))
+export function cableLinked(typeA, typeB, cableType, gorevA = '', gorevB = '') {
+  return Boolean(matchCable(typeA || cableType, typeB || cableType)) && gorevUyar(gorevA, gorevB)
 }
 
 export function cableShown(state, cable) {
