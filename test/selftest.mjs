@@ -6,7 +6,7 @@ import { headingFromQuaternion, portOrientation, portRoll } from '../src/yaw.js'
 import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
 import { cableRadius, CABLE_OD_MM, plugReach, routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
-import { addCable, addComponent, addModel, addParca, addPort, cableCins, cableLinked, cableShown, coaxFace, duplicateComponent, emptyState, matchCable, modelSolid, parcaKaydi, portHasGender, removeParca, setComponentDeger, setModelParca, uid } from '../src/state.js'
+import { addCable, addComponent, addModel, addModelPort, addParca, addPort, cableCins, cableLinked, cableShown, coaxFace, duplicateComponent, emptyState, matchCable, modelSolid, parcaKaydi, portHasGender, removeParca, setComponentDeger, setModelParca, setPortGorev, uid } from '../src/state.js'
 import { cableLengthCm, decimalText, exteriorMask, modelUnit, nearestMeasureCorner, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference, uniqueMeasureCorner } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
 import { orientBand, signalBand, signalColor, signalLap, signalPackets, signalSample } from '../src/sinyal.js'
@@ -638,6 +638,11 @@ const copied = duplicateComponent(lib, lib.components[0].id)
 check('kopya alanları boş gelir', copied.components.at(-1).parcaId === kayit.id && copied.components.at(-1).degerler.dBm == null)
 lib = removeParca(lib, kayit.id)
 check('silinen parça kütüphaneden kalkar', lib.kutuphane.length === 0 && lib.models[0].parcaId == null && lib.components[0].parcaId == null)
+let gorevli = addModelPort(addModel(emptyState(), { id: 'm', name: 'Kutu', file: 'k.glb' }), 'm', { id: 'p', name: 'RF SMA 1', type: 'sma' })
+gorevli = setPortGorev(gorevli, 'p', ' GPS ')
+check('port görevi yazılır', gorevli.models[0].ports[0].gorev === 'GPS')
+gorevli = setPortGorev(gorevli, 'p', '  ')
+check('boş görev silinir', gorevli.models[0].ports[0].gorev === '')
 
 if (failed) {
   console.error(failed, 'hata')

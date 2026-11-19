@@ -236,7 +236,7 @@ export function mount(hooks) {
         const row = document.createElement('li')
         row.className = 'satir-oge'
         const pick = { kind: 'port', componentId: component.id, portId: port.id }
-        const name = button(port.name, () => hooks.onSelect?.(pick))
+        const name = button(portLabel(port), () => hooks.onSelect?.(pick))
         name.setAttribute('aria-pressed', chosenPort?.portId === port.id && chosenPort?.componentId === component.id ? 'true' : 'false')
         name.addEventListener('pointerenter', () => hooks.onHover?.(pick))
         name.addEventListener('pointerleave', () => hooks.onHover?.(null))
@@ -244,6 +244,7 @@ export function mount(hooks) {
           ? () => hooks.onRemoveModelPort?.(component.modelId, port.id)
           : () => hooks.onRemovePort?.(component.id, port.id)
         row.append(name, button('Sil', remove))
+        if (chosenPort?.portId === port.id && chosenPort?.componentId === component.id) row.append(gorevField(port))
         ports.append(row)
       }
       const actions = document.createElement('div')
@@ -372,6 +373,38 @@ export function mount(hooks) {
     return wrap
   }
 
+  function portLabel(port) {
+    return port.gorev ? `${port.name} · ${port.gorev}` : port.name
+  }
+
+  function gorevField(port) {
+    const wrap = document.createElement('div')
+    wrap.className = 'alan-form'
+    const id = `gorev-${port.id}`
+    const noteId = `gorev-not-${port.id}`
+    const label = document.createElement('label')
+    label.htmlFor = id
+    label.textContent = 'Görev'
+    const input = document.createElement('input')
+    input.id = id
+    input.name = 'gorev'
+    input.type = 'text'
+    input.autocomplete = 'off'
+    input.spellcheck = false
+    input.setAttribute('autocorrect', 'off')
+    input.setAttribute('autocapitalize', 'none')
+    input.setAttribute('aria-describedby', noteId)
+    input.value = port.gorev || ''
+    input.addEventListener('change', () => hooks.onPortGorev?.(port.id, input.value.trim()))
+    label.append(input)
+    const note = document.createElement('p')
+    note.id = noteId
+    note.className = 'not'
+    note.textContent = 'GPS, 2.4/5.8 GHz, Rx, Tx'
+    wrap.append(label, note)
+    return wrap
+  }
+
   function genderField(port) {
     const field = document.createElement('fieldset')
     field.className = 'uc'
@@ -407,12 +440,15 @@ export function mount(hooks) {
       const row = document.createElement('li')
       row.className = 'satir-oge'
       const pick = { kind: 'port', componentId: 'incele', portId: port.id }
-      const name = button(port.name, () => hooks.onSelect?.(pick))
+      const name = button(portLabel(port), () => hooks.onSelect?.(pick))
       name.setAttribute('aria-pressed', chosenPort?.portId === port.id ? 'true' : 'false')
       name.addEventListener('pointerenter', () => hooks.onHover?.(pick))
       name.addEventListener('pointerleave', () => hooks.onHover?.(null))
       row.append(name, button('Sil', () => hooks.onRemoveModelPort?.(model.id, port.id)))
-      if (chosenPort?.portId === port.id && portHasGender(port.type)) row.append(genderField(port))
+      if (chosenPort?.portId === port.id) {
+        row.append(gorevField(port))
+        if (portHasGender(port.type)) row.append(genderField(port))
+      }
       ports.append(row)
     }
     return disclosure('portlar', 'Portlar', ports)
@@ -563,7 +599,7 @@ export function mount(hooks) {
           && ui.selection.componentId === component.id
         children.push(treeItem({
           id: `port:${component.id}:${port.id}`,
-          label: port.name,
+          label: portLabel(port),
           depth: 2,
           kind: 'port',
           selected: Boolean(chosen),

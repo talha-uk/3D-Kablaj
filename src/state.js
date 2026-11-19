@@ -180,6 +180,16 @@ export function addModelPort(state, modelId, port) {
   }
 }
 
+export function setPortGorev(state, portId, gorev) {
+  const patch = { gorev: String(gorev || '').trim() }
+  const mapPorts = (ports) => (ports || []).map((port) => (port.id === portId ? { ...port, ...patch } : port))
+  return {
+    ...state,
+    models: state.models.map((item) => ({ ...item, ports: mapPorts(item.ports) })),
+    components: state.components.map((item) => ({ ...item, ports: mapPorts(item.ports) }))
+  }
+}
+
 export function setPortCins(state, portId, cins) {
   const patch = { cins: cins === 'erkek' ? 'erkek' : 'disi' }
   const mapPorts = (ports) => (ports || []).map((port) => (port.id === portId ? { ...port, ...patch } : port))

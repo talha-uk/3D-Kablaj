@@ -441,8 +441,10 @@ ul { list-style: none; margin: 0.4rem 0 0; padding: 0; display: flex; flex-direc
 #parcalar > li { display: flex; flex-direction: column; gap: 0.2rem; }
 #parcalar ul { margin-inline-start: 0.6rem; }
 #parcalar button { width: 100%; text-align: start; }
-.satir-oge { display: flex; gap: 0.3rem; align-items: center; }
+.satir-oge { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
 .satir-oge button:first-child { flex: 1; text-align: start; }
+.satir-oge > .alan-form,
+.satir-oge > fieldset { flex: 1 0 100%; }
 .not { color: var(--muted); font-size: 0.8rem; margin-block: 0.35rem; }
 
 .ornek {

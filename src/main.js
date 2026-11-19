@@ -27,6 +27,7 @@ import {
   setComponentParca,
   setModelParca,
   setPortCins,
+  setPortGorev,
   uid,
   updateCable,
   updateComponent,
@@ -96,6 +97,7 @@ const ui = mount({
   onRemovePort: (componentId, portId) => commit(removePort(state, componentId, portId), 'Port silindi.'),
   onRemoveModelPort: (modelId, portId) => commit(removeModelPort(state, modelId, portId), 'Port silindi.'),
   onPortCins: (portId, cins) => commit(setPortCins(state, portId, cins), cins === 'erkek' ? 'Port erkek.' : 'Port dişi.'),
+  onPortGorev: (portId, gorev) => commit(setPortGorev(state, portId, gorev), gorev ? 'Port görevi yazıldı.' : 'Port görevi silindi.'),
   onRenameCable: (id, name) => commit(updateCable(state, id, { name })),
   onCableType: (id, type) => commit(updateCable(state, id, { type })),
   onDeleteCable: async (id) => {
