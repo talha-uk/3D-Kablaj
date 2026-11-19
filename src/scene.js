@@ -42,7 +42,7 @@ function addEthernetPort(pivot, fit, component, port) {
   const up = faceSign(pivot)
   putPort(pivot, ownedBox(width, lip, tall), shell, component, port, 0, lip * 0.35, 0)
   putPort(pivot, ownedBox(width * 0.94, body, tall * 0.92), shell, component, port, 0, -body / 2, 0)
-  putPort(pivot, ownedBox(width * 0.7, lip * 1.6, tall * 0.52), plastic, component, port, 0, lip * 0.15, 0)
+  putPort(pivot, ownedBox(mm(fit, 12.2), lip * 2.2, mm(fit, 7.4)), plastic, component, port, 0, lip * 0.2, 0)
   putPort(pivot, ownedBox(width * 0.22, lip, tall * 0.08), plastic, component, port, 0, lip * 0.55, up * tall * 0.36)
   const tongue = putPort(pivot, ownedBox(width * 0.58, body * 0.28, tall * 0.1), plastic, component, port, 0, -mm(fit, 1.2), up * tall * 0.08)
   tongue.castShadow = false
@@ -325,11 +325,11 @@ function addRjPlug(group, cableId) {
   const latch = endMat(0x9aa3ab, 0.1, 0.45)
   const gold = endMat(0xd4af37, 0.9, 0.22)
   const boot = endMat(0x4a5158, 0.06, 0.62)
-  const width = cm(11.6)
-  const tall = cm(6.4)
+  const width = cm(10.4)
+  const tall = cm(5.6)
   const nose = cm(8)
   const body = cm(14)
-  endMesh(group, ownedBox(width, nose, tall), shell, 0, nose / 2 - cm(3), 0, cableId)
+  endMesh(group, ownedBox(width, nose, tall), shell, 0, nose / 2 - cm(4.2), 0, cableId)
   endMesh(group, ownedBox(width * 0.72, cm(3.5), cm(1.1)), latch, 0, cm(2.2), tall * 0.42, cableId)
   for (let pin = 0; pin < 8; pin += 1) {
     const contact = endMesh(group, ownedBox(cm(0.45), cm(2.2), cm(0.35)), gold, -width * 0.32 + pin * cm(1.05), cm(0.2), -tall * 0.28, cableId)
@@ -343,10 +343,10 @@ function addUsbAJackPlug(group, cableId, blue) {
   const shell = endMat(0xe7ecef, 0.65, 0.3)
   const house = endMat(blue ? 0x1d4ed8 : 0x1a1c1f, 0.08, 0.55)
   const boot = endMat(0x222222, 0.06, 0.66)
-  const width = cm(13.4)
-  const thick = cm(6.2)
+  const width = cm(14.2)
+  const thick = cm(6.6)
   endMesh(group, ownedBox(width, cm(10), thick), shell, 0, cm(2), 0, cableId)
-  endMesh(group, ownedBox(width * 0.82, cm(3), thick * 0.55), house, 0, cm(0.4), 0, cableId)
+  endMesh(group, ownedBox(cm(12.4), cm(3), cm(5.2)), house, 0, cm(0.2), 0, cableId)
   endMesh(group, ownedCylinder(cm(4.2), cm(2.6), cm(10), 16), boot, 0, cm(10), 0, cableId)
   return 1.8
 }
@@ -355,11 +355,11 @@ function addUsbAPlug(group, cableId, blue) {
   const shell = endMat(0xe7ecef, 0.7, 0.28)
   const house = endMat(blue ? 0x1d4ed8 : 0x1c1c1c, 0.08, 0.5)
   const boot = endMat(0x222222, 0.06, 0.66)
-  const width = cm(12)
-  const thick = cm(4.5)
+  const width = cm(11.6)
+  const thick = cm(4.2)
   const nose = cm(12)
-  endMesh(group, ownedBox(width, nose, thick), shell, 0, nose / 2 - cm(6), 0, cableId)
-  endMesh(group, ownedBox(width * 0.72, cm(4), thick * 0.28), house, 0, cm(1.2), 0, cableId)
+  endMesh(group, ownedBox(width, nose, thick), shell, 0, nose / 2 - cm(7), 0, cableId)
+  endMesh(group, ownedBox(width * 0.72, cm(4), thick * 0.28), house, 0, cm(0.2), 0, cableId)
   endMesh(group, ownedCylinder(cm(4.2), cm(2.4), cm(10), 16), boot, 0, nose + cm(2), 0, cableId)
   return nose + cm(6)
 }
@@ -367,10 +367,10 @@ function addUsbAPlug(group, cableId, blue) {
 function addUsbCPlug(group, cableId) {
   const shell = endMat(0xe8eef1, 0.68, 0.28)
   const boot = endMat(0x2a2a2a, 0.12, 0.72)
-  const width = cm(8.6)
-  const thick = cm(2.6)
+  const width = cm(8)
+  const thick = cm(2.2)
   const nose = cm(7)
-  endMesh(group, ownedBox(width, nose, thick), shell, 0, nose / 2 - cm(3.5), 0, cableId)
+  endMesh(group, ownedStadium(width, thick, nose), shell, 0, cm(-4.2), 0, cableId)
   endMesh(group, ownedCylinder(cm(3.6), cm(2.2), cm(12), 16), boot, 0, nose + cm(3), 0, cableId)
   return nose + cm(8)
 }
@@ -380,7 +380,7 @@ function addBarrelJackPlug(group, cableId) {
   const black = endMat(0x1a1a1a, 0.08, 0.62)
   const bore = endMat(0x101214, 0.15, 0.6)
   endMesh(group, ownedCylinder(cm(4.6), cm(4.6), cm(8), 20), steel, 0, cm(1.5), 0, cableId)
-  endMesh(group, ownedRing(cm(1.3), cm(3.2)), bore, 0, cm(0.4), 0, cableId)
+  endMesh(group, ownedRing(cm(2.9), cm(3.8)), bore, 0, cm(0.4), 0, cableId)
   endMesh(group, ownedCylinder(cm(4.2), cm(2.6), cm(10), 16), black, 0, cm(8), 0, cableId)
   return 1.4
 }
@@ -389,7 +389,7 @@ function addBarrelPlug(group, cableId) {
   const steel = endMat(0xd5dbe2, 0.78, 0.28)
   const black = endMat(0x1a1a1a, 0.08, 0.62)
   const ring = endMat(0xc62828, 0.12, 0.5)
-  endMesh(group, ownedCylinder(cm(2.6), cm(2.6), cm(9), 20), steel, 0, cm(-1), 0, cableId)
+  endMesh(group, ownedCylinder(cm(2.5), cm(2.5), cm(9), 20), steel, 0, cm(-1.2), 0, cableId)
   endMesh(group, ownedCylinder(cm(3.4), cm(3.4), cm(1.2), 20), ring, 0, cm(3.2), 0, cableId)
   endMesh(group, ownedCylinder(cm(4.2), cm(2.6), cm(12), 18), black, 0, cm(8), 0, cableId)
   return cm(14)
@@ -423,7 +423,7 @@ function addPowerMalePanel(pivot, fit, component, port) {
   const steel = portMaterial(0xd5dbe2, 0.75, 0.3)
   const pinMat = portMaterial(0xc9ccd0, 0.82, 0.26)
   putPort(pivot, ownedCylinder(mm(fit, 5.5), mm(fit, 5.5), mm(fit, 2.2), 6), black, component, port, 0, mm(fit, 0.2), 0)
-  putPort(pivot, ownedCylinder(mm(fit, 2.6), mm(fit, 2.6), mm(fit, 9), 20), steel, component, port, 0, mm(fit, 3.2), 0)
+  putPort(pivot, ownedCylinder(mm(fit, 2.5), mm(fit, 2.5), mm(fit, 9), 20), steel, component, port, 0, mm(fit, 3.2), 0)
   putPort(pivot, ownedCylinder(mm(fit, 0.9), mm(fit, 0.9), mm(fit, 4), 12), pinMat, component, port, 0, mm(fit, 2.4), 0)
 }
 
@@ -441,7 +441,7 @@ function addPowerPort(pivot, fit, component, port) {
   putPort(pivot, ownedCylinder(sleeveR * 0.86, sleeveR * 0.86, buried, 20), steel, component, port, 0, -buried / 2, 0)
   putPort(pivot, ownedCylinder(sleeveR, sleeveR, proud, 24), steel, component, port, 0, proud / 2, 0)
   const face = proud
-  putPort(pivot, ownedRing(mm(fit, 1.15), sleeveR * 0.82), bore, component, port, 0, face, 0)
+  putPort(pivot, ownedRing(mm(fit, 2.9), sleeveR * 0.92), bore, component, port, 0, face, 0)
   putPort(pivot, ownedCylinder(mm(fit, 0.95), mm(fit, 0.95), mm(fit, 2.2), 12), pinMat, component, port, 0, face - mm(fit, 0.7), 0)
 }
 
