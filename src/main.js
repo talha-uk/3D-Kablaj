@@ -49,7 +49,6 @@ let measureUndo = false
 
 const ui = mount({
   onMode: (mode) => {
-    pinInspect()
     applyMode(mode)
     publish(false)
   },
@@ -127,17 +126,6 @@ const ui = mount({
     const ok = await ui.confirm('Parça silinsin mi?', `${parca.ad} kütüphaneden kalkar.`, 'Sil')
     if (!ok) return
     commit(removeParca(state, id), `${parca.ad} silindi.`)
-  },
-  onUseParca: (id) => {
-    if (uiState.selection?.kind === 'component') {
-      commit(setComponentParca(state, uiState.selection.id, id), 'Parça alanları açıldı.')
-      return
-    }
-    if (uiState.mode === 'incele' && uiState.inspectId) {
-      commit(setModelParca(state, uiState.inspectId, id), 'Model bu parçayı kullanır.')
-      return
-    }
-    ui.status('Modeli incelemede seç veya sahnedeki parçaya tıkla.')
   },
   onModelParca: (modelId, parcaId) => commit(setModelParca(state, modelId, parcaId), 'Modelin parçası kaydedildi.'),
   onComponentParca: (id, parcaId) => commit(setComponentParca(state, id, parcaId), 'Parça alanları açıldı.'),

@@ -218,17 +218,10 @@ h2 { font-size: 0.85rem; margin-block-end: 0.4rem; }
   font-size: 0.85rem;
 }
 
-.hiyerarsi-eylem { display: flex; align-items: center; gap: 0.3rem; }
-
 .hiyerarsi-baslik button {
   min-block-size: 1.55rem;
   padding: 0.1rem 0.45rem;
   font-size: 0.75rem;
-}
-
-#parca-ekle {
-  min-inline-size: 1.8rem;
-  font-size: 1rem;
 }
 
 #hiyerarsi,

@@ -40,7 +40,6 @@ export function mount(hooks) {
   const ekran = document.getElementById('ekran')
 
   document.getElementById('yukle').addEventListener('click', () => dosya.click())
-  document.getElementById('parca-ekle').addEventListener('click', () => hooks.onAddParca?.())
   const parcaDialog = document.getElementById('parca')
   if (!('closedBy' in HTMLDialogElement.prototype)) {
     parcaDialog.addEventListener('click', (event) => {
@@ -140,11 +139,11 @@ export function mount(hooks) {
     }
     tabs.setMode(ui.mode)
 
-    const showEmpty = ui.mode === 'incele' ? !ui.inspectId : state.components.length === 0
+    const showEmpty = ui.mode === 'incele' ? state.models.length === 0 : state.components.length === 0
     bos.hidden = !showEmpty
     bos.textContent = ui.mode === 'incele'
       ? 'Soldan bir model seç. Port işaretle veya ölçü noktası sağ paneli açar.'
-      : 'Modeli hiyerarşiden sahneye sürükle.'
+      : 'İncelede bir modeli sahneye sürükle.'
     drawHierarchy(state, ui)
 
     const active = document.activeElement
@@ -206,6 +205,10 @@ export function mount(hooks) {
     secili.replaceChildren()
     const chosenPort = ui.selection?.kind === 'port' ? ui.selection : null
     if (ui.mode === 'incele') {
+      if (!ui.inspectId) {
+        secili.append(libraryPanel(state))
+        return
+      }
       appendInspect(state, ui, chosenPort)
       return
     }
@@ -649,21 +652,51 @@ export function mount(hooks) {
         children
       })
     })
-    if (!sceneRows.length) sceneRows.push(noteItem('Modeli sahneye sürükle.', 1))
-    const libraryRows = (state.kutuphane || []).map((parca) => treeItem({
-      id: `kutup:${parca.id}`,
-      label: `${parca.ad} · ${parca.alanlar.join(', ')}`,
-      depth: 1,
-      kind: 'kutup',
-      onActivate: () => hooks.onUseParca?.(parca.id),
-      extra: removeButton(() => hooks.onRemoveParca?.(parca.id))
+    if (!sceneRows.length) sceneRows.push(noteItem('İncelede bir modeli sahneye sürükle.', 1))
+    if (ui.mode === 'incele') {
+      hiyerarsi.append(treeItem({
+        id: 'grup:modeller',
+        label: 'Modeller',
+        depth: 0,
+        kind: 'grup',
+        onActivate: () => hooks.onInspect?.(null),
+        children: modelRows
+      }))
+      return
+    }
+    hiyerarsi.append(treeItem({
+      id: 'grup:sahne',
+      label: 'Sahne',
+      depth: 0,
+      kind: 'grup',
+      children: sceneRows
     }))
-    if (!libraryRows.length) libraryRows.push(noteItem('+ ile ad ve alan kaydet. Örneğin dBm, MHz.', 1))
-    hiyerarsi.append(
-      treeItem({ id: 'grup:kutuphane', label: 'Parça kütüphanesi', depth: 0, kind: 'grup', children: libraryRows }),
-      treeItem({ id: 'grup:modeller', label: 'Modeller', depth: 0, kind: 'grup', children: modelRows }),
-      treeItem({ id: 'grup:sahne', label: 'Sahne', depth: 0, kind: 'grup', children: sceneRows })
-    )
+  }
+
+  function libraryPanel(state) {
+    const box = document.createElement('div')
+    box.className = 'alan-form'
+    const title = document.createElement('h2')
+    title.textContent = 'Parça kütüphanesi'
+    const note = document.createElement('p')
+    note.className = 'not'
+    note.textContent = 'Ad ve alanları kaydet. Örneğin dBm, MHz. Sahneye her koyuşta bu alanlar gelir.'
+    const add = button('Parça ekle', () => hooks.onAddParca?.())
+    box.append(title, note, add)
+    const list = document.createElement('ul')
+    for (const parca of state.kutuphane || []) {
+      const row = document.createElement('li')
+      row.className = 'satir-oge'
+      const name = document.createElement('p')
+      name.textContent = parca.ad
+      const fields = document.createElement('p')
+      fields.className = 'not'
+      fields.textContent = parca.alanlar.join(', ')
+      row.append(name, fields, removeButton(() => hooks.onRemoveParca?.(parca.id)))
+      list.append(row)
+    }
+    if ((state.kutuphane || []).length) box.append(list)
+    return box
   }
 
   function noteItem(text, depth) {
@@ -682,7 +715,7 @@ export function mount(hooks) {
 
   function treeItem({ id, label, depth, kind, selected, modelId, onActivate, hover, extra, children = [] }) {
     const hasChildren = children.length > 0
-    const open = hasChildren ? (treeOpen.has(id) ? treeOpen.get(id) : true) : false
+    const open = hasChildren ? (treeOpen.has(id) ? treeOpen.get(id) : kind !== 'parca') : false
     const li = document.createElement('li')
     li.setAttribute('role', 'treeitem')
     if (selected) li.setAttribute('aria-selected', 'true')
