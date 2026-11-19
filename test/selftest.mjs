@@ -9,7 +9,7 @@ import { cableRadius, CABLE_OD_MM, plugReach, routeClear, routePlacement, routeS
 import { addCable, addComponent, addModel, addPort, cableCins, cableLinked, cableShown, coaxFace, emptyState, matchCable, modelSolid, portHasGender, uid } from '../src/state.js'
 import { cableLengthCm, decimalText, exteriorMask, modelUnit, nearestMeasureCorner, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference, uniqueMeasureCorner } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
-import { signalColor, signalLap, signalPackets, signalSample } from '../src/sinyal.js'
+import { orientBand, signalBand, signalColor, signalLap, signalPackets, signalSample } from '../src/sinyal.js'
 import fs from 'node:fs'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 
@@ -613,6 +613,16 @@ check('uyumsuz tek deneme', signalPackets('sma', 30, false).length === 1)
 check('uyumsuz renk kırmızı', signalColor('ag', false) === 0xff4d3a)
 check('ethernet yeşil', signalColor('ag', true) === 0x3ee08a)
 check('tur üç yanıp sönmeden yavaş', signalLap(0.2, 'ntype') >= 1.1)
+const band = signalBand(0.3)
+check('halka kablonun her yanından taşar', band.major + band.tube > 0.3 && band.major - band.tube < 0.3)
+const hole = new THREE.Vector3()
+const quat = new THREE.Quaternion()
+for (const dir of [[1, 0, 0], [0, 1, 0], [0, 0, -1]]) {
+  const tangent = new THREE.Vector3().fromArray(dir).normalize()
+  orientBand(quat, tangent)
+  hole.set(0, 0, 1).applyQuaternion(quat)
+  check(`halka deliği ${dir.join(',')} boyunca`, hole.dot(tangent) > 0.99)
+}
 
 if (failed) {
   console.error(failed, 'hata')

@@ -1,5 +1,21 @@
+import * as THREE from 'three'
+
 const MIN_LAP = 1.15
 const FAIL_AT = 0.58
+const BAND_AXIS = new THREE.Vector3(0, 0, 1)
+const _tangent = new THREE.Vector3()
+
+export function signalBand(radius) {
+  const span = Math.max(Number(radius) || 0, 0.04)
+  return { major: span * 1.02, tube: Math.max(span * 0.34, 0.02) }
+}
+
+export function orientBand(quaternion, tangent) {
+  _tangent.copy(tangent)
+  if (_tangent.lengthSq() < 1e-8) _tangent.set(0, 1, 0)
+  _tangent.normalize()
+  quaternion.setFromUnitVectors(BAND_AXIS, _tangent)
+}
 
 export function signalPace(type) {
   if (type === 'guc') return 6
