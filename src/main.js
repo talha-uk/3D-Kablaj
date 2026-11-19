@@ -259,6 +259,16 @@ const view = new View(document.getElementById('sahne'), {
   }
 })
 
+const akisButton = document.getElementById('akis')
+const paintFlow = () => {
+  akisButton.textContent = view.flowing ? 'Akışı durdur' : 'Akışı sürdür'
+}
+akisButton.addEventListener('click', () => {
+  view.setFlowing(!view.flowing)
+  paintFlow()
+})
+paintFlow()
+
 function inspectFallback() {
   return state.components.find((item) => item.id === uiState.selection?.id)?.modelId
     || view.inspectRoot?.userData?.modelId

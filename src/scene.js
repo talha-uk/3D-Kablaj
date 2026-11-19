@@ -11,7 +11,8 @@ import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
 import { cableRadius, plugReach, SCHEMA_LIFT, routeClear, routeSchema, routeVia } from './route.js'
-import { cableCins, cableShown, coaxFace, modelSolid, portRecord, portTypeOf } from './state.js'
+import { cableCins, cableLinked, cableShown, coaxFace, modelSolid, portRecord, portTypeOf } from './state.js'
+import { signalColor, signalPackets, signalSample } from './sinyal.js'
 
 function ownedBox(width, height, depth) {
   const geometry = new THREE.BoxGeometry(width, height, depth)
@@ -655,6 +656,10 @@ export class View {
     this.cableMeshes = new Map()
     this.plugGroups = new Map()
     this.plugShift = new Map()
+    this.signals = []
+    this.time = 0
+    this.flowing = typeof matchMedia !== 'function' || !matchMedia('(prefers-reduced-motion: reduce)').matches
+    this.flowDrawn = false
     this.bend = null
     this.down = null
     this.pan = null
@@ -903,6 +908,12 @@ export class View {
   tick() {
     requestAnimationFrame(this.tick)
     const dt = Math.min(this.clock.getDelta(), 0.05)
+    if (this.flowing) this.time += dt
+    if (this.signals.length && (this.flowing || !this.flowDrawn)) {
+      this.flowSignals(this.flowing ? dt : 0)
+      this.flowDrawn = true
+      this.live = true
+    }
     const speed = this.flyKeys.size ? this.applyFly(dt) : 0
     if (speed) this.live = true
     this.reportSpeed(speed)
@@ -1260,6 +1271,7 @@ export class View {
       mesh.userData.cableId = cable.id
       this.cableRoot.add(mesh)
       this.cableMeshes.set(cable.id, mesh)
+      this.addFlow(curve, cable, radius)
       const pickGeometry = new THREE.TubeGeometry(curve, Math.max(12, Math.round(tubular / 2)), Math.max(radius * 2.2, 0.45), 5, false)
       pickGeometry.userData.owned = true
       const pick = new THREE.Mesh(pickGeometry, new THREE.MeshBasicMaterial())
@@ -1325,6 +1337,112 @@ export class View {
     const span = (this.ortho.top - this.ortho.bottom) / Math.max(this.ortho.zoom, 0.001)
     const screen = span / Math.max(this.canvas.clientHeight, 1) * 6
     return Math.min(Math.max(bead, screen), bead * 1.8)
+  }
+
+  setFlowing(on) {
+    this.flowing = Boolean(on)
+    this.live = true
+  }
+
+  addFlow(curve, cable, radius) {
+    const length = curve.getLength()
+    if (!(length > 0.05)) return
+    const typeA = portTypeOf(this.state, cable.a.componentId, cable.a.portId)
+    const typeB = portTypeOf(this.state, cable.b.componentId, cable.b.portId)
+    const ok = cableLinked(typeA, typeB, cable.type)
+    const color = signalColor(cable.type, ok)
+    const size = Math.max(radius * 0.55, 0.055)
+    for (const packet of signalPackets(cable.type, length, ok)) {
+      const geometry = new THREE.SphereGeometry(size, 12, 8)
+      geometry.userData.owned = true
+      const material = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 1,
+        depthWrite: false,
+        toneMapped: false
+      })
+      material.userData.owned = true
+      const bead = new THREE.Mesh(geometry, material)
+      bead.userData.kind = 'signal'
+      bead.raycast = () => {}
+      bead.renderOrder = 3
+      this.cableRoot.add(bead)
+      let ring = null
+      if (ok && packet.phase === 0) {
+        const ringGeometry = new THREE.TorusGeometry(Math.max(radius * 1.35, 0.1), Math.max(radius * 0.16, 0.018), 8, 16)
+        ringGeometry.userData.owned = true
+        const ringMaterial = new THREE.MeshBasicMaterial({
+          color,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+          toneMapped: false
+        })
+        ringMaterial.userData.owned = true
+        ring = new THREE.Mesh(ringGeometry, ringMaterial)
+        ring.userData.kind = 'signal'
+        ring.raycast = () => {}
+        ring.visible = false
+        ring.renderOrder = 3
+        const endU = packet.dir < 0 ? 0.02 : 0.98
+        ring.position.copy(curve.getPointAt(endU))
+        const tangent = curve.getTangentAt(endU).normalize()
+        if (tangent.lengthSq() > 1e-8) ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent)
+        this.cableRoot.add(ring)
+      }
+      this.signals.push({
+        curve,
+        bead,
+        ring,
+        dir: packet.dir,
+        phase: packet.phase,
+        type: cable.type,
+        ok,
+        length,
+        radius,
+        lead: packet.phase === 0,
+        along: null,
+        flash: 0
+      })
+    }
+  }
+
+  flowSignals(dt) {
+    const point = this._flowPoint || (this._flowPoint = new THREE.Vector3())
+    const tangent = this._flowTangent || (this._flowTangent = new THREE.Vector3())
+    const side = this._flowSide || (this._flowSide = new THREE.Vector3())
+    const up = this._flowUp || (this._flowUp = new THREE.Vector3(0, 1, 0))
+    const xAxis = this._flowX || (this._flowX = new THREE.Vector3(1, 0, 0))
+    for (const item of this.signals) {
+      const sample = signalSample({
+        time: this.time,
+        length: item.length,
+        type: item.type,
+        dir: item.dir,
+        phase: item.phase,
+        ok: item.ok
+      })
+      if (item.lead && item.ok && item.along != null && sample.along < item.along && item.along > 0.8) item.flash = 0.45
+      item.along = sample.along
+      item.curve.getPointAt(sample.u, point)
+      item.curve.getTangentAt(sample.u, tangent)
+      if (tangent.lengthSq() < 1e-8) tangent.set(0, 1, 0)
+      tangent.normalize()
+      side.crossVectors(tangent, up)
+      if (side.lengthSq() < 1e-6) side.crossVectors(tangent, xAxis)
+      side.normalize()
+      const breathe = item.type === 'guc' && item.ok ? 0.84 + Math.sin(this.time * 2.2) * 0.16 : 1
+      item.bead.position.copy(point).addScaledVector(side, item.radius * 0.95)
+      item.bead.material.opacity = Math.max(0, Math.min(1, sample.alpha * breathe))
+      item.bead.visible = item.bead.material.opacity > 0.04
+      if (!item.ring) continue
+      item.flash = Math.max(0, item.flash - dt)
+      const fade = item.flash / 0.45
+      item.ring.material.opacity = fade * 0.7
+      item.ring.scale.setScalar(0.85 + (1 - fade) * 0.45)
+      item.ring.visible = fade > 0.02
+    }
   }
 
   addBendHandles(cable, vias, lift) {
@@ -1407,6 +1525,8 @@ export class View {
     }
     this.cableMeshes.clear()
     this.plugGroups.clear()
+    this.signals = []
+    this.flowDrawn = false
     for (const child of [...this.bendRoot.children]) {
       if (child.geometry?.userData.owned) child.geometry.dispose()
       if (child.material) child.material.dispose()

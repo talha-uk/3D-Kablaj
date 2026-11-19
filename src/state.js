@@ -102,6 +102,10 @@ export function matchCable(typeA, typeB) {
   return MIXED_CABLES[[typeA, typeB].sort().join('+')] || null
 }
 
+export function cableLinked(typeA, typeB, cableType) {
+  return Boolean(matchCable(typeA || cableType, typeB || cableType))
+}
+
 export function cableShown(state, cable) {
   const hidden = new Set(state.hiddenTypes || [])
   const ends = [

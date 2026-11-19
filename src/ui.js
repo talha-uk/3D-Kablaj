@@ -1,6 +1,6 @@
 import { modelSolid } from './state.js'
 import { decimalText, pairCm } from './olcu.js'
-import { cableCins, componentName, componentPorts, matchCable, measureOf, portCins, portHasGender, portName, portTypeOf, typeName } from './state.js'
+import { cableCins, cableLinked, componentName, componentPorts, matchCable, measureOf, portCins, portHasGender, portName, portTypeOf, typeName } from './state.js'
 import { bindTabs, bindToolbar } from './keys.js'
 
 function button(label, onClick) {
@@ -202,7 +202,12 @@ export function mount(hooks) {
       const length = document.createElement('p')
       length.className = 'not'
       length.textContent = cm == null ? 'Boy: ölçü yok' : `Boy: ${cm.toFixed(1)} cm`
-      secili.append(form, length, button('Sil', () => hooks.onDeleteCable?.(cable.id)))
+      const flow = document.createElement('p')
+      flow.className = 'not'
+      flow.textContent = cableLinked(aType, bType, cable.type)
+        ? 'Sinyal kablo boyunca karşı uca ulaşıyor.'
+        : 'Sinyal yarı yolda sönüyor.'
+      secili.append(form, length, flow, button('Sil', () => hooks.onDeleteCable?.(cable.id)))
       return
     }
     appendInspect(state, ui, chosenPort)

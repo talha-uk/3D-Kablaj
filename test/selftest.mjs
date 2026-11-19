@@ -6,9 +6,10 @@ import { headingFromQuaternion, portOrientation, portRoll } from '../src/yaw.js'
 import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
 import { cableRadius, CABLE_OD_MM, plugReach, routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
-import { addCable, addComponent, addModel, addPort, cableCins, cableShown, coaxFace, emptyState, matchCable, modelSolid, portHasGender, uid } from '../src/state.js'
+import { addCable, addComponent, addModel, addPort, cableCins, cableLinked, cableShown, coaxFace, emptyState, matchCable, modelSolid, portHasGender, uid } from '../src/state.js'
 import { cableLengthCm, decimalText, exteriorMask, modelUnit, nearestMeasureCorner, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference, uniqueMeasureCorner } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
+import { signalColor, signalLap, signalPackets, signalSample } from '../src/sinyal.js'
 import fs from 'node:fs'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 
@@ -52,6 +53,8 @@ check('Ethernet ile Type-C bağlanır', matchCable('usbc', 'ag')?.name === 'Ethe
 check('USB 2 ile Type-C bağlanır', matchCable('usb2', 'usbc')?.type === 'usb2')
 check('SMA ile Ethernet bağlanmaz', matchCable('sma', 'ag') === null)
 check('güç yalnız güce gider', matchCable('guc', 'usbc') === null && matchCable('guc', 'guc')?.type === 'guc')
+check('türü boş kablo kendi türünde akar', cableLinked('', '', 'guc'))
+check('uyumsuz uçta sinyal kesilir', cableLinked('sma', 'ag', 'sma') === false)
 const mixed = addCable(next, { componentId: a.id, portId: pa.id }, { componentId: b.id, portId: pb.id }, 'rf', 'RF SMA–N')
 mixed.components = mixed.components.map((item) => ({
   ...item,
@@ -583,6 +586,33 @@ function boxGlb() {
   binChunk.copy(out, binStart + 8)
   return out
 }
+
+const start = signalSample({ time: 0, length: 20, type: 'ag', dir: 1, ok: true })
+check('sinyal A ucundan çıkar', start.u < 0.05 && start.arrive === false)
+const half = signalLap(20, 'ag') * 0.5
+const mid = signalSample({ time: half, length: 20, type: 'ag', dir: 1, ok: true })
+check('sinyal yarı yolda', mid.u > 0.45 && mid.u < 0.55)
+const back = signalSample({ time: 0, length: 20, type: 'ag', dir: -1, ok: true })
+check('karşı sinyal B ucundan çıkar', back.u > 0.95)
+const short = signalSample({ time: half, length: 4, type: 'ag', dir: 1, ok: true })
+const long = signalSample({ time: half, length: 80, type: 'ag', dir: 1, ok: true })
+check('uzun kablo aynı sürede daha az yol alır', long.u < short.u)
+const earlyFail = signalSample({ time: 0.12, length: 20, type: 'sma', dir: 1, ok: false })
+check('uyumsuz sinyal yola çıkar', earlyFail.alpha === 1 && earlyFail.u > 0.02 && earlyFail.u < 0.4)
+const lateFail = signalSample({ time: signalLap(20, 'sma') * 0.9, length: 20, type: 'sma', dir: 1, ok: false })
+check('uyumsuz sinyal karşı uca varmaz', lateFail.u < 0.7 && lateFail.arrive === false && lateFail.alpha < 1)
+const arrived = signalSample({ time: signalLap(20, 'ag') * 0.95, length: 20, type: 'ag', dir: 1, ok: true })
+check('uyumlu sinyal uca varır', arrived.arrive === true && arrived.u > 0.9)
+const power = signalPackets('guc', 30, true)
+check('güç tek yönde akar', power.length === 3 && power.every((item) => item.dir === 1))
+check('kısa güç tek damla', signalPackets('guc', 2, true).length === 1)
+const data = signalPackets('ag', 30, true)
+check('veri iki yönde gider', data.some((item) => item.dir === 1) && data.some((item) => item.dir === -1))
+check('kısa kabloda bir çift paket', signalPackets('usb2', 8, true).length === 2)
+check('uyumsuz tek deneme', signalPackets('sma', 30, false).length === 1)
+check('uyumsuz renk kırmızı', signalColor('ag', false) === 0xff4d3a)
+check('ethernet yeşil', signalColor('ag', true) === 0x3ee08a)
+check('tur üç yanıp sönmeden yavaş', signalLap(0.2, 'ntype') >= 1.1)
 
 if (failed) {
   console.error(failed, 'hata')
