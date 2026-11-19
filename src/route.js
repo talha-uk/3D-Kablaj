@@ -271,7 +271,7 @@ function overPath(start, end, crown) {
 
 export function plugReach(type) {
   if (type === 'ntype') return 2.36
-  if (type === 'sma' || type === 'rf') return 1.74
+  if (type === 'sma' || type === 'rf' || type === 'rpsma') return 1.74
   if (type === 'ag') return 2.2
   if (type === 'usb' || type === 'usb2' || type === 'usb3') return 1.8
   if (type === 'usbc') return 1.5
@@ -343,6 +343,7 @@ export function routeThrough(aPos, aNormal, bPos, bNormal, via) {
 // guc: EN 50525-2-11 H05VV-F 3G0,75 nominal 6,7 mm.
 export const CABLE_OD_MM = {
   sma: 2.5,
+  rpsma: 2.5,
   rf: 5,
   ntype: 10.3,
   usb2: 4,
@@ -359,6 +360,7 @@ export function cableRadius(type) {
 }
 export const SCHEMA_LIFT = {
   sma: 0.008,
+  rpsma: 0.008,
   rf: 0.008,
   ntype: 0.014,
   usb2: 0.02,

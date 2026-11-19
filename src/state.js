@@ -1,5 +1,6 @@
 export const CABLE_TYPES = [
   { id: 'sma', name: 'RF SMA' },
+  { id: 'rpsma', name: 'RP-SMA' },
   { id: 'ntype', name: 'RF N' },
   { id: 'usb2', name: 'USB 2.0' },
   { id: 'usb3', name: 'USB 3.0' },
@@ -28,6 +29,7 @@ export function emptyState() {
 
 export const PORT_TYPES = [
   { id: 'sma', name: 'RF SMA' },
+  { id: 'rpsma', name: 'RP-SMA' },
   { id: 'ntype', name: 'RF N' },
   { id: 'usb2', name: 'USB 2.0' },
   { id: 'usb3', name: 'USB 3.0' },
@@ -40,7 +42,18 @@ export function modelSolid(model) {
   return model?.birim === 'cm' || Boolean(model?.boyut)
 }
 
-const GENDERED = new Set(['sma', 'rf', 'ntype', 'usb', 'usb2', 'usb3', 'guc'])
+const GENDERED = new Set(['sma', 'rf', 'rpsma', 'ntype', 'usb', 'usb2', 'usb3', 'guc'])
+
+// Fotoğraftaki yüz: erkek gövde altıgen somun, dişi gövde dış diş.
+// SMA erkekte orta pim, dişide delik. RP-SMA bunu ters çevirir.
+export function coaxFace(type, cins) {
+  const rp = type === 'rpsma'
+  const male = cins === 'erkek'
+  return {
+    shell: male ? 'nut' : 'thread',
+    contact: male === rp ? 'socket' : 'pin'
+  }
+}
 
 export function portHasGender(type) {
   return GENDERED.has(type)

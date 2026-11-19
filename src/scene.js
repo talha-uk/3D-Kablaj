@@ -11,7 +11,7 @@ import { createViewCube, cullViewCube, markCube, syncViewCube } from './viewcube
 import { headingFromQuaternion, portOrientation, portRoll, wrapAngle } from './yaw.js'
 import { softSnap, softSnapAngle } from './snap.js'
 import { cableRadius, plugReach, SCHEMA_LIFT, routeClear, routeSchema, routeVia } from './route.js'
-import { cableCins, cableShown, modelSolid, portRecord, portTypeOf } from './state.js'
+import { cableCins, cableShown, coaxFace, modelSolid, portRecord, portTypeOf } from './state.js'
 
 function ownedBox(width, height, depth) {
   const geometry = new THREE.BoxGeometry(width, height, depth)
@@ -104,7 +104,7 @@ function putPort(pivot, geometry, material, component, port, x, y, z) {
   return mesh
 }
 
-function addCoaxMalePanel(pivot, fit, component, port, nType) {
+function addCoaxMalePanel(pivot, fit, component, port, nType, contact = 'pin') {
   const metal = portMaterial(nType ? 0xd5dee7 : 0xe4c56a, nType ? 0.8 : 0.72, nType ? 0.3 : 0.3)
   const pinMat = portMaterial(0xf3d48a, 0.92, 0.16)
   const ptfe = portMaterial(0xf4f0e6, 0.02, 0.42)
@@ -118,12 +118,17 @@ function addCoaxMalePanel(pivot, fit, component, port, nType) {
   putPort(pivot, ownedCylinder(hexR, hexR, nutT, 6), metal, component, port, 0, nutT * 0.08, 0)
   putPort(pivot, ownedCylinder(mm(fit, nType ? 4.2 : 2.6), mm(fit, nType ? 4.2 : 2.6), buried, 16), metal, component, port, 0, -buried / 2, 0)
   putPort(pivot, ownedRing(pinR * 1.8, mm(fit, nType ? 3.2 : 2.1)), ptfe, component, port, 0, mm(fit, 1.3), 0)
-  putPort(pivot, ownedCylinder(pinR, pinR, mm(fit, nType ? 4.2 : 3.4), 12), pinMat, component, port, 0, mm(fit, 2.1), 0)
+  if (contact === 'socket') {
+    putPort(pivot, ownedCylinder(pinR * 1.7, pinR * 1.7, mm(fit, 1.6), 12), portMaterial(0x1a120c, 0.2, 0.55), component, port, 0, mm(fit, 1.5), 0)
+  } else {
+    putPort(pivot, ownedCylinder(pinR, pinR, mm(fit, nType ? 4.2 : 3.4), 12), pinMat, component, port, 0, mm(fit, 2.1), 0)
+  }
   putPort(pivot, ownedCylinder(nutR, nutR, nutLen, 6), metal, component, port, 0, nutCenter, 0)
 }
 
 function addCoaxPort(pivot, fit, component, port, nType) {
-  if (port?.cins === 'erkek') return addCoaxMalePanel(pivot, fit, component, port, nType)
+  const face = coaxFace(port?.type === 'rpsma' ? 'rpsma' : (nType ? 'ntype' : 'sma'), port?.cins === 'erkek' ? 'erkek' : 'disi')
+  if (face.shell === 'nut') return addCoaxMalePanel(pivot, fit, component, port, nType, face.contact)
   const metal = portMaterial(nType ? 0xd5dee7 : 0xe4c56a, nType ? 0.8 : 0.7, nType ? 0.3 : 0.32)
   const ptfe = portMaterial(0xf4f0e6, 0.02, 0.42)
   const socket = portMaterial(0x121416, 0.3, 0.48)
@@ -148,9 +153,13 @@ function addCoaxPort(pivot, fit, component, port, nType) {
       0
     )
   }
-  const face = nutT * 0.45 + proud
-  putPort(pivot, ownedRing(barrelR * 0.28, barrelR * 0.78), ptfe, component, port, 0, face, 0)
-  putPort(pivot, ownedCylinder(barrelR * 0.2, barrelR * 0.2, mm(fit, 1.4), 12), socket, component, port, 0, face - mm(fit, 0.55), 0)
+  const faceY = nutT * 0.45 + proud
+  putPort(pivot, ownedRing(barrelR * 0.28, barrelR * 0.78), ptfe, component, port, 0, faceY, 0)
+  if (face.contact === 'pin') {
+    putPort(pivot, ownedCylinder(mm(fit, nType ? 0.7 : 0.45), mm(fit, nType ? 0.7 : 0.45), mm(fit, 2.4), 12), portMaterial(0xf6d78c, 0.92, 0.14), component, port, 0, faceY + mm(fit, 0.5), 0)
+  } else {
+    putPort(pivot, ownedCylinder(barrelR * 0.2, barrelR * 0.2, mm(fit, 1.4), 12), socket, component, port, 0, faceY - mm(fit, 0.55), 0)
+  }
 }
 
 function addUsbAMalePanel(pivot, fit, component, port, blue) {
@@ -253,7 +262,7 @@ function cm(value) {
   return value / 10
 }
 
-function addCoaxJackPlug(group, cableId, nType) {
+function addCoaxJackPlug(group, cableId, nType, contact = 'socket') {
   const metal = endMat(nType ? 0xd5dee7 : 0xe4c56a, nType ? 0.8 : 0.72, 0.3)
   const ptfe = endMat(0xf4f0e6, 0.02, 0.42)
   const socket = endMat(0x121416, 0.3, 0.48)
@@ -262,14 +271,18 @@ function addCoaxJackPlug(group, cableId, nType) {
   const barrelLen = cm(nType ? 7.5 : 5.2)
   endMesh(group, ownedCylinder(barrelR, barrelR, barrelLen, 24), metal, 0, cm(nType ? 2.2 : 1.6), 0, cableId)
   endMesh(group, ownedRing(barrelR * 0.28, barrelR * 0.78), ptfe, 0, cm(0.35), 0, cableId)
-  endMesh(group, ownedCylinder(barrelR * 0.2, barrelR * 0.2, cm(1.6), 12), socket, 0, cm(0.7), 0, cableId)
+  if (contact === 'pin') {
+    endMesh(group, ownedCylinder(cm(nType ? 0.7 : 0.45), cm(nType ? 0.7 : 0.45), cm(2.4), 12), endMat(0xf6d78c, 0.92, 0.14), 0, cm(0.2), 0, cableId)
+  } else {
+    endMesh(group, ownedCylinder(barrelR * 0.2, barrelR * 0.2, cm(1.6), 12), socket, 0, cm(0.7), 0, cableId)
+  }
   const bodyR = cm(nType ? 6.2 : 3.5)
   endMesh(group, ownedCylinder(bodyR, bodyR, cm(nType ? 8 : 6), 18), metal, 0, barrelLen + cm(nType ? 2 : 1.6), 0, cableId)
   endMesh(group, ownedCylinder(bodyR, cm(nType ? 5.4 : 2.4), cm(nType ? 8 : 6), 16), boot, 0, cm(nType ? 16 : 12), 0, cableId)
   return nType ? 2.36 : 1.74
 }
 
-function addCoaxPlug(group, cableId, nType) {
+function addCoaxPlug(group, cableId, nType, contact = 'pin') {
   const metal = endMat(nType ? 0xd7e0e8 : 0xe8c96a, nType ? 0.84 : 0.76, 0.26)
   const pinMat = endMat(0xf6d78c, 0.92, 0.14)
   const boot = endMat(0x161616, 0.06, 0.72)
@@ -278,7 +291,11 @@ function addCoaxPlug(group, cableId, nType) {
   const pinR = cm(nType ? 0.7 : 0.45)
   const nutCenter = cm(nType ? 5.6 : 4)
   const nutLen = cm(nType ? 7.2 : 5.2)
-  endMesh(group, ownedCylinder(pinR, pinR, cm(nType ? 4 : 3.2), 12), pinMat, 0, cm(nType ? 1.2 : 0.8), 0, cableId)
+  if (contact === 'socket') {
+    endMesh(group, ownedCylinder(pinR * 1.8, pinR * 1.8, cm(1.5), 12), endMat(0x1a120c, 0.2, 0.55), 0, nutCenter - nutLen * 0.28, 0, cableId)
+  } else {
+    endMesh(group, ownedCylinder(pinR, pinR, cm(nType ? 4 : 3.2), 12), pinMat, 0, cm(nType ? 1.2 : 0.8), 0, cableId)
+  }
   endMesh(group, ownedCylinder(nutR, nutR, nutLen, 6), metal, 0, nutCenter, 0, cableId)
   for (let tooth = 0; tooth < 6; tooth += 1) {
     const angle = (tooth / 6) * Math.PI * 2
@@ -386,8 +403,13 @@ function addPlainBoot(group, cableId) {
 
 function addCablePlug(group, type, cableId, cins = 'erkek') {
   const disi = cins === 'disi'
-  if (type === 'sma' || type === 'rf') return disi ? addCoaxJackPlug(group, cableId, false) : addCoaxPlug(group, cableId, false)
-  if (type === 'ntype') return disi ? addCoaxJackPlug(group, cableId, true) : addCoaxPlug(group, cableId, true)
+  if (type === 'sma' || type === 'rf' || type === 'rpsma' || type === 'ntype') {
+    const face = coaxFace(type === 'rf' ? 'sma' : type, cins)
+    const nType = type === 'ntype'
+    return face.shell === 'thread'
+      ? addCoaxJackPlug(group, cableId, nType, face.contact)
+      : addCoaxPlug(group, cableId, nType, face.contact)
+  }
   if (type === 'ag') return addRjPlug(group, cableId)
   if (type === 'usb3') return disi ? addUsbAJackPlug(group, cableId, true) : addUsbAPlug(group, cableId, true)
   if (type === 'usb' || type === 'usb2') return disi ? addUsbAJackPlug(group, cableId, false) : addUsbAPlug(group, cableId, false)
@@ -556,6 +578,7 @@ function jacketTextures() {
   })
   const look = {
     sma: { map: sma, roughness: 0.32, metalness: 0.04, repeat: 1.6 },
+    rpsma: { map: sma, roughness: 0.32, metalness: 0.04, repeat: 1.6 },
     rf: { map: rf, roughness: 0.62, metalness: 0.02, repeat: 1.8 },
     ntype: { map: ntype, roughness: 0.9, metalness: 0, repeat: 2.4 },
     usb2: { map: usb2, roughness: 0.55, metalness: 0.02, repeat: 2 },
@@ -1073,7 +1096,7 @@ export class View {
     pivot.quaternion.copy(portOrientation(normal, port.roll || 0))
     const kind = port.type
     if (kind === 'ag') addEthernetPort(pivot, fit, component, port)
-    else if (kind === 'sma' || kind === 'rf') addCoaxPort(pivot, fit, component, port, false)
+    else if (kind === 'sma' || kind === 'rf' || kind === 'rpsma') addCoaxPort(pivot, fit, component, port, false)
     else if (kind === 'ntype') addCoaxPort(pivot, fit, component, port, true)
     else if (kind === 'usb3') addUsbAPort(pivot, fit, component, port, true)
     else if (kind === 'usb' || kind === 'usb2') addUsbAPort(pivot, fit, component, port, false)

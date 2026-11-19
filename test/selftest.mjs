@@ -6,7 +6,7 @@ import { headingFromQuaternion, portOrientation, portRoll } from '../src/yaw.js'
 import { softSnap, softSnapAngle } from '../src/snap.js'
 import { focusFor } from '../src/focus.js'
 import { cableRadius, CABLE_OD_MM, plugReach, routeClear, routePlacement, routeSchema, routeThrough } from '../src/route.js'
-import { addCable, addComponent, addModel, addPort, cableCins, cableShown, emptyState, matchCable, modelSolid, portHasGender, uid } from '../src/state.js'
+import { addCable, addComponent, addModel, addPort, cableCins, cableShown, coaxFace, emptyState, matchCable, modelSolid, portHasGender, uid } from '../src/state.js'
 import { cableLengthCm, decimalText, exteriorMask, modelUnit, nearestMeasureCorner, pairCm, placeMeasurePoint, portWorld, sameFaceTriangles, scaleFromBox, scaleFromEdges, scaleFromPair, snapAxisCorner, snapEdgeCorner, snapModelCorner, snapReference, uniqueMeasureCorner } from '../src/olcu.js'
 import { seenFrom } from '../src/viewcube.js'
 import fs from 'node:fs'
@@ -167,6 +167,14 @@ check('dişi porta erkek kablo', cableCins({ cins: 'disi' }) === 'erkek' && cabl
 check('erkek porta dişi kablo', cableCins({ cins: 'erkek' }) === 'disi')
 check('sma ve n cins seçilir', portHasGender('sma') && portHasGender('ntype') && portHasGender('guc'))
 check('ethernet ve type-c yuvadır', !portHasGender('ag') && !portHasGender('usbc'))
+const smaErkek = coaxFace('sma', 'erkek')
+const smaDisi = coaxFace('sma', 'disi')
+const rpErkek = coaxFace('rpsma', 'erkek')
+const rpDisi = coaxFace('rpsma', 'disi')
+check('sma erkek pimli somun', smaErkek.shell === 'nut' && smaErkek.contact === 'pin')
+check('sma dişi delikli diş', smaDisi.shell === 'thread' && smaDisi.contact === 'socket')
+check('rp-sma erkek delikli somun', rpErkek.shell === 'nut' && rpErkek.contact === 'socket')
+check('rp-sma dişi pimli diş', rpDisi.shell === 'thread' && rpDisi.contact === 'pin')
 
 const still = new THREE.PerspectiveCamera(45, 1, 0.1, 100)
 still.position.set(3, 2.4, 4)
