@@ -365,6 +365,95 @@ function addUsbAPlug(group, cableId, blue) {
   return nose + cm(6)
 }
 
+function addHdmiPort(pivot, fit, component, port) {
+  const shell = portMaterial(0xd5dde6, 0.72, 0.28)
+  const cavity = portMaterial(0x101216, 0.12, 0.6)
+  const gold = portMaterial(0xe2c56a, 0.9, 0.22)
+  const width = mm(fit, 15)
+  const tall = mm(fit, 6.4)
+  const buried = mm(fit, 9)
+  const proud = mm(fit, 2.6)
+  const up = faceSign(pivot)
+  putPort(pivot, ownedBox(width, buried, tall), shell, component, port, 0, -buried / 2, 0)
+  putPort(pivot, ownedBox(width * 1.08, proud, tall * 1.28), shell, component, port, 0, proud * 0.45, 0)
+  putPort(pivot, ownedBox(mm(fit, 13.4), proud * 0.92, mm(fit, 4.8)), cavity, component, port, 0, proud * 0.5, 0)
+  putPort(pivot, ownedBox(mm(fit, 11.4), proud * 0.45, mm(fit, 0.7)), shell, component, port, 0, proud * 0.82, up * mm(fit, 1.6))
+  const tongueZ = up * mm(fit, 0.2)
+  const span = mm(fit, 9.4)
+  for (let index = 0; index < 10; index += 1) {
+    const contact = putPort(
+      pivot,
+      ownedBox(mm(fit, 0.32), proud * 0.7, mm(fit, 0.22)),
+      gold,
+      component,
+      port,
+      -span / 2 + (span / 9) * index,
+      proud * 0.55,
+      tongueZ - up * mm(fit, 0.55)
+    )
+    contact.castShadow = false
+  }
+}
+
+function addSdPort(pivot, fit, component, port) {
+  const shell = portMaterial(0xd7dee6, 0.7, 0.3)
+  const cavity = portMaterial(0x121418, 0.1, 0.62)
+  const card = portMaterial(0x1b1e24, 0.08, 0.55)
+  const gold = portMaterial(0xe2c56a, 0.92, 0.2)
+  const width = mm(fit, 14.6)
+  const tall = mm(fit, 2.2)
+  const buried = mm(fit, 11)
+  const proud = mm(fit, 3.4)
+  const up = faceSign(pivot)
+  putPort(pivot, ownedBox(width, buried, tall), shell, component, port, 0, -buried / 2, 0)
+  putPort(pivot, ownedBox(width * 1.05, mm(fit, 1.2), tall * 1.4), shell, component, port, 0, mm(fit, 0.4), 0)
+  putPort(pivot, ownedBox(mm(fit, 11.6), mm(fit, 1.4), mm(fit, 1.3)), cavity, component, port, 0, mm(fit, 0.55), 0)
+  putPort(pivot, ownedBox(mm(fit, 10.4), proud, mm(fit, 0.85)), card, component, port, 0, proud * 0.45, up * mm(fit, 0.12))
+  const span = mm(fit, 7.4)
+  for (let index = 0; index < 8; index += 1) {
+    const contact = putPort(
+      pivot,
+      ownedBox(mm(fit, 0.5), mm(fit, 1.3), mm(fit, 0.16)),
+      gold,
+      component,
+      port,
+      -span / 2 + (span / 7) * index,
+      proud * 0.72,
+      up * mm(fit, 0.12)
+    )
+    contact.castShadow = false
+  }
+  putPort(pivot, ownedBox(mm(fit, 3.4), mm(fit, 2.4), mm(fit, 0.4)), shell, component, port, width * 0.28, -mm(fit, 0.2), up * tall * 0.42)
+}
+
+function addHdmiPlug(group, cableId) {
+  const shell = endMat(0xd7dee8, 0.74, 0.26)
+  const boot = endMat(0x1a1a1a, 0.08, 0.7)
+  const width = cm(11.4)
+  const tall = cm(3.4)
+  const nose = cm(11)
+  endMesh(group, ownedBox(width, nose, tall), shell, 0, nose / 2 - cm(6.5), 0, cableId)
+  endMesh(group, ownedBox(width * 1.15, cm(4), tall * 1.35), shell, 0, nose - cm(4), 0, cableId)
+  endMesh(group, ownedCylinder(cm(3.4), cm(2.6), cm(12), 16), boot, 0, nose + cm(1.5), 0, cableId)
+  return 1.9
+}
+
+function addSdPlug(group, cableId) {
+  const card = endMat(0x1b1e24, 0.08, 0.55)
+  const gold = endMat(0xe2c56a, 0.92, 0.2)
+  const boot = endMat(0x2a2a2a, 0.08, 0.7)
+  const width = cm(10.2)
+  const thick = cm(0.7)
+  const nose = cm(8)
+  endMesh(group, ownedBox(width, nose, thick), card, 0, nose / 2 - cm(5.2), 0, cableId)
+  for (let index = 0; index < 8; index += 1) {
+    const contact = endMesh(group, ownedBox(cm(0.45), cm(1.4), cm(0.12)), gold, -cm(3.6) + index * cm(1.02), cm(-1.2), 0, cableId)
+    contact.castShadow = false
+  }
+  endMesh(group, ownedCylinder(cm(1.6), cm(1.1), cm(8), 12), boot, 0, nose + cm(0.4), 0, cableId)
+  return 1.25
+}
+
 function addUsbCPlug(group, cableId) {
   const shell = endMat(0xe8eef1, 0.68, 0.28)
   const boot = endMat(0x2a2a2a, 0.12, 0.72)
@@ -415,6 +504,8 @@ function addCablePlug(group, type, cableId, cins = 'erkek') {
   if (type === 'usb3') return disi ? addUsbAJackPlug(group, cableId, true) : addUsbAPlug(group, cableId, true)
   if (type === 'usb' || type === 'usb2') return disi ? addUsbAJackPlug(group, cableId, false) : addUsbAPlug(group, cableId, false)
   if (type === 'usbc') return addUsbCPlug(group, cableId)
+  if (type === 'hdmi') return addHdmiPlug(group, cableId)
+  if (type === 'sd') return addSdPlug(group, cableId)
   if (type === 'guc') return disi ? addBarrelJackPlug(group, cableId) : addBarrelPlug(group, cableId)
   return addPlainBoot(group, cableId)
 }
@@ -572,6 +663,21 @@ function jacketTextures() {
     g.fillStyle = '#2c2c2c'
     g.fillRect(0, 26, 256, 8)
   })
+  const hdmi = jacketCanvas((g) => {
+    fillJacket(g, '#1a1a1a')
+    g.fillStyle = '#d7dde6'
+    g.fillRect(0, 8, 256, 3)
+    g.fillRect(0, 52, 256, 3)
+    g.fillStyle = '#3a3a3a'
+    g.fillRect(0, 28, 256, 8)
+  })
+  const sd = jacketCanvas((g) => {
+    fillJacket(g, '#202226')
+    g.fillStyle = '#e2c56a'
+    g.fillRect(0, 46, 256, 4)
+    g.fillStyle = '#3a3e44'
+    g.fillRect(0, 18, 256, 8)
+  })
   const diger = jacketCanvas((g) => {
     fillJacket(g, '#6e7370')
     g.fillStyle = '#8e948f'
@@ -586,6 +692,8 @@ function jacketTextures() {
     usb: { map: usb2, roughness: 0.55, metalness: 0.02, repeat: 2 },
     usb3: { map: usb3, roughness: 0.5, metalness: 0.02, repeat: 2 },
     usbc: { map: usbc, roughness: 0.92, metalness: 0.08, repeat: 0.45 },
+    hdmi: { map: hdmi, roughness: 0.55, metalness: 0.04, repeat: 1.6 },
+    sd: { map: sd, roughness: 0.7, metalness: 0.05, repeat: 1.2 },
     ag: { map: ag, roughness: 0.8, metalness: 0, repeat: 1.8 },
     guc: { map: guc, roughness: 0.86, metalness: 0, repeat: 2.2 },
     diger: { map: diger, roughness: 0.75, metalness: 0, repeat: 2 }
@@ -1109,6 +1217,8 @@ export class View {
     else if (kind === 'usb3') addUsbAPort(pivot, fit, component, port, true)
     else if (kind === 'usb' || kind === 'usb2') addUsbAPort(pivot, fit, component, port, false)
     else if (kind === 'usbc') addUsbCPort(pivot, fit, component, port)
+    else if (kind === 'hdmi') addHdmiPort(pivot, fit, component, port)
+    else if (kind === 'sd') addSdPort(pivot, fit, component, port)
     else addPowerPort(pivot, fit, component, port)
     return pivot
   }

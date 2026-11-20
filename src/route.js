@@ -275,6 +275,8 @@ export function plugReach(type) {
   if (type === 'ag') return 2.2
   if (type === 'usb' || type === 'usb2' || type === 'usb3') return 1.8
   if (type === 'usbc') return 1.5
+  if (type === 'hdmi') return 1.9
+  if (type === 'sd') return 1.25
   if (type === 'guc') return 1.4
   return 0.7
 }
@@ -350,6 +352,8 @@ export const CABLE_OD_MM = {
   usb: 4,
   usb3: 5.5,
   usbc: 4.5,
+  hdmi: 6,
+  sd: 2.2,
   ag: 5.9,
   guc: 6.7,
   diger: 4
@@ -367,6 +371,8 @@ export const SCHEMA_LIFT = {
   usb: 0.02,
   usb3: 0.026,
   usbc: 0.03,
+  hdmi: 0.034,
+  sd: 0.012,
   ag: 0.032,
   guc: 0.038,
   diger: 0.044

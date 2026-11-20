@@ -5,6 +5,8 @@ export const CABLE_TYPES = [
   { id: 'usb2', name: 'USB 2.0' },
   { id: 'usb3', name: 'USB 3.0' },
   { id: 'usbc', name: 'USB Type-C' },
+  { id: 'hdmi', name: 'HDMI' },
+  { id: 'sd', name: 'SD kart' },
   { id: 'ag', name: 'Ethernet' },
   { id: 'guc', name: 'Güç' },
   { id: 'rf', name: 'RF' },
@@ -34,6 +36,8 @@ export const PORT_TYPES = [
   { id: 'usb2', name: 'USB 2.0' },
   { id: 'usb3', name: 'USB 3.0' },
   { id: 'usbc', name: 'USB Type-C' },
+  { id: 'hdmi', name: 'HDMI' },
+  { id: 'sd', name: 'SD kart' },
   { id: 'ag', name: 'Ethernet' },
   { id: 'guc', name: 'Güç' }
 ]

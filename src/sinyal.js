@@ -35,6 +35,8 @@ export function signalColor(type, ok) {
   if (type === 'ag') return 0x3ee08a
   if (type === 'usb' || type === 'usb2' || type === 'usb3' || type === 'usbc') return 0x4cc3ff
   if (type === 'sma' || type === 'rpsma' || type === 'rf' || type === 'ntype') return 0x8dff6a
+  if (type === 'hdmi') return 0xd7dde6
+  if (type === 'sd') return 0xe6c36a
   return 0xb6ffb0
 }
 

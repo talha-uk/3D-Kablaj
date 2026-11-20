@@ -514,6 +514,7 @@ const measured = {
 const length = cableLengthCm(measured, measured.cables[0], () => ({ s: 1, x: 0, y: 0, z: 0 }))
 check('kablo santimetreye oturur', length > 9 && length < 14)
 check('kablo gerçek dış çapa oturur', cableRadius('sma') === CABLE_OD_MM.sma / 20 && cableRadius('guc') === 6.7 / 20 && cableRadius('ntype') === 10.3 / 20 && cableRadius('ag') === 5.9 / 20)
+check('hdmi kablosu kalın sd kart kablosu incedir', cableRadius('hdmi') === 6 / 20 && cableRadius('sd') === 2.2 / 20 && plugReach('hdmi') > plugReach('sd'))
 check('solid metre dosyası santime çevrilir', modelUnit({ boyut: '10 × 10 × 10 mm' }) === 100)
 check('yeni solid santim olarak durur', modelUnit({ boyut: '10 × 10 × 10 mm', birim: 'cm' }) === 1)
 check('glb olduğu gibi durur', modelUnit({ name: 'kutu' }) === 1)
