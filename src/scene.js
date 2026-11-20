@@ -1599,6 +1599,7 @@ export class View {
     } else {
       for (const group of this.groups.values()) paintNode(group)
       for (const mesh of this.cableMeshes.values()) paintNode(mesh)
+      for (const group of this.plugGroups.values()) paintNode(group)
       paintNode(this.bendRoot)
     }
     this.markActivePorts(focus)
@@ -1628,13 +1629,22 @@ export class View {
   }
 
   meshLit(object, focus) {
-    if (!focus || this.mode === 'incele') return true
+    if (this.mode === 'incele') return true
+    if (!focus) return false
     const kind = object.userData.kind
     if (focus.submesh) return object === focus.submesh
-    if (focus.portFocus) return true
-    if (kind === 'cable' || kind === 'bend') return focus.cables?.has(object.userData.cableId)
-    if (object.userData.componentId && focus.components) return focus.components.has(object.userData.componentId)
-    return true
+    if (kind === 'cable' || kind === 'bend' || kind === 'plug') return Boolean(focus.cables?.has(object.userData.cableId))
+    const id = object.userData.componentId
+    if (focus.portFocus) {
+      if (!id) return false
+      if (focus.host && id === focus.host) return true
+      for (const key of focus.ports || []) {
+        if (key.startsWith(`${id}:`)) return true
+      }
+      return false
+    }
+    if (id && focus.components) return focus.components.has(id)
+    return false
   }
 
   frameObject(root) {
