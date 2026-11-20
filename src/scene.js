@@ -771,6 +771,7 @@ export class View {
     this.pan = null
     this.bendDrag = null
     this.pointDrag = null
+    this.schemaDrag = null
     this.viewHalf = 4
 
     this.renderer = new THREE.WebGLRenderer({
@@ -1878,13 +1879,20 @@ export class View {
         started: false
       }
     }
-    if (this.mode !== 'yerlesim' && this.tool !== 'kablo' && this.tool !== 'dondur' && hit?.kind === 'port') {
+    if (this.mode !== 'yerlesim' && this.mode !== 'sema' && this.tool !== 'kablo' && this.tool !== 'dondur' && hit?.kind === 'port') {
       const pivot = this.pivots.get(`${hit.componentId}:${hit.portId}`)
       const visual = pivot && this.portSurface(pivot)
       if (pivot && visual) {
         const normal = new THREE.Vector3(0, 1, 0).applyQuaternion(pivot.quaternion).normalize()
         this.surfaceDrag = { pivot, visual, roll: portRoll(pivot.quaternion, normal), started: false }
         this.orbit.enabled = false
+      }
+    }
+    if (this.mode === 'sema' && this.tool !== 'kablo' && this.tool !== 'dondur' && (hit?.kind === 'component' || hit?.kind === 'port')) {
+      const group = this.groups.get(hit.componentId)
+      const point = group && this.schemaPoint()
+      if (group && point) {
+        this.schemaDrag = { group, grab: point.clone().sub(group.position), started: false }
       }
     }
     if (hit?.kind === 'bend') {
@@ -1929,6 +1937,10 @@ export class View {
       this.dragYaw(event)
       return
     }
+    if (this.schemaDrag && this.down) {
+      this.dragSchema(event)
+      return
+    }
     if (this.bendDrag && this.down) {
       if (!this.bendDrag.started) {
         this.bendDrag.started = true
@@ -1959,8 +1971,37 @@ export class View {
     if (this.down || this.transform.dragging) return
     const hit = this.firstHit()
     if (hit?.kind === 'olcu') this.canvas.style.cursor = 'grab'
+    if (this.mode === 'sema' && (hit?.kind === 'component' || hit?.kind === 'port') && this.tool !== 'kablo' && this.tool !== 'dondur') {
+      this.canvas.style.cursor = 'grab'
+    }
     const hover = hit ? { kind: hit.kind, componentId: hit.componentId, cableId: hit.cableId, portId: hit.portId, mesh: hit.mesh } : null
     this.setHover(hover)
+  }
+
+  schemaPoint() {
+    this.raycaster.setFromCamera(this.pointer, this.activeCamera())
+    const point = this._schemaPoint || (this._schemaPoint = new THREE.Vector3())
+    const plane = this._schemaPlane || (this._schemaPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0))
+    if (!this.raycaster.ray.intersectPlane(plane, point)) return null
+    return point
+  }
+
+  dragSchema(event) {
+    const drag = this.schemaDrag
+    if (Math.hypot(event.clientX - this.down.x, event.clientY - this.down.y) < 3 && !drag.started) return
+    if (!drag.started) {
+      drag.started = true
+      this.hooks.onPoseStart?.()
+      this.canvas.style.cursor = 'grabbing'
+    }
+    const point = this.schemaPoint()
+    if (!point) return
+    drag.group.position.x = softSnap(point.x - drag.grab.x)
+    drag.group.position.y = 0
+    drag.group.position.z = softSnap(point.z - drag.grab.z)
+    this.syncCables()
+    if (this.box) this.setBox(drag.group)
+    this.requestRender()
   }
 
   dragPan(event) {
@@ -2141,6 +2182,18 @@ export class View {
       this.lookDrag = null
       if (moved) this.hooks.onMeasureDragEnd?.()
       return
+    }
+    if (this.schemaDrag) {
+      const drag = this.schemaDrag
+      this.schemaDrag = null
+      this.canvas.style.cursor = ''
+      if (drag.started) {
+        this.commitPose(drag.group)
+        this.down = null
+        this.pan = null
+        this.lookDrag = null
+        return
+      }
     }
     if (this.bendDrag) {
       if (this.bendDrag.moved) this.hooks.onBend?.(this.bendDrag.id, this.bendDrag.vias, this.mode === 'sema')
